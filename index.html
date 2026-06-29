@@ -250,6 +250,7 @@
 <body>
 
     <div class="container">
+        <!-- Formulario -->
         <section class="form-section">
             <h2>Registrar Familiar</h2>
             <form id="treeForm">
@@ -280,6 +281,7 @@
 
                 <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 15px 0;">
 
+                <!-- LÓGICA DE PARENTESCO EVOLUCIONADA -->
                 <div class="form-group">
                     <label for="relativeSelect">¿Tiene relación con algún miembro ya creado?</label>
                     <select id="relativeSelect" onchange="toggleRelationshipType()">
@@ -290,6 +292,7 @@
                 <div class="form-group hidden" id="relationshipGroup">
                     <label for="relationshipType">¿Qué es de esa persona?</label>
                     <select id="relationshipType">
+                        <option value="padre">Es su Padre / Madre</option>
                         <option value="hijo">Es su Hijo / Hija</option>
                         <option value="hermano">Es su Hermano / Hermana</option>
                         <option value="esposo">Es su Esposo / Esposa</option>
@@ -305,6 +308,7 @@
             </form>
         </section>
 
+        <!-- Lienzo del árbol -->
         <main class="tree-viewport">
             <div class="tree" id="treeContainer">
                 <p id="emptyMessage" style="color: #64748b; padding-top: 40px;">No has agregado ningún miembro aún. Comienza creando al primer miembro de la familia.</p>
@@ -343,35 +347,33 @@
             let parentId = null;
             let spouseId = null;
 
-            // --- Motor de cálculo de relaciones ---
-            if (relativeId !== 'none') {
-                const relative = familyData.find(m => m.id === relativeId);
-                
-                if (relationshipType === 'hijo') {
-                    parentId = relative.id;
-                } else if (relationshipType === 'hermano') {
-                    parentId = relative.parentId; // Comparte el mismo padre
-                } else if (relationshipType === 'esposo') {
-                    spouseId = relative.id;
-                    parentId = relative.parentId; // Se renderiza en el mismo nivel/entorno
-                }
-            }
-
             const newMember = {
                 id: memberId,
                 name: `${names} ${lastNames}`,
                 birth: birthYear,
                 isAlive: isAlive,
                 death: isAlive ? null : deathYear,
-                parentId: parentId,
-                spouseId: spouseId,
+                parentId: null,
+                spouseId: null,
                 photo: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
             };
 
-            // Vincular de forma bidireccional si es esposo/a
-            if (spouseId) {
-                const spouse = familyData.find(m => m.id === spouseId);
-                if (spouse) spouse.spouseId = memberId;
+            // --- Lógica del Motor de Relaciones (Incluye Padre/Madre) ---
+            if (relativeId !== 'none') {
+                const relative = familyData.find(m => m.id === relativeId);
+                
+                if (relationshipType === 'padre') {
+                    // El nuevo miembro pasa a ser la cabeza. El pariente seleccionado ahora es su hijo.
+                    relative.parentId = memberId;
+                } else if (relationshipType === 'hijo') {
+                    newMember.parentId = relative.id;
+                } else if (relationshipType === 'hermano') {
+                    newMember.parentId = relative.parentId;
+                } else if (relationshipType === 'esposo') {
+                    newMember.spouseId = relative.id;
+                    newMember.parentId = relative.parentId;
+                    relative.spouseId = memberId;
+                }
             }
 
             if (photoInput.files && photoInput.files[0]) {
@@ -389,12 +391,16 @@
         function saveAndRender(member) {
             familyData.push(member);
             
-            // Actualizar el selector de familiares
+            // Re-actualizar por completo el selector de familiares disponibles
             const relativeSelect = document.getElementById('relativeSelect');
-            const option = document.createElement('option');
-            option.value = member.id;
-            option.textContent = member.name;
-            relativeSelect.appendChild(option);
+            relativeSelect.innerHTML = '<option value="none">No, es el miembro inicial del árbol</option>';
+            
+            familyData.forEach(m => {
+                const option = document.createElement('option');
+                option.value = m.id;
+                option.textContent = m.name;
+                relativeSelect.appendChild(option);
+            });
 
             renderTreeGraph();
 
@@ -403,7 +409,6 @@
             toggleRelationshipType();
         }
 
-        // Generar tarjeta HTML individual
         function getCardHTML(member) {
             const dateText = member.isAlive ? `b. ${member.birth}` : `${member.birth} - ${member.death}`;
             const dotClass = member.isAlive ? 'dot-alive' : 'dot-deceased';
@@ -418,12 +423,9 @@
             `;
         }
 
-        // Construir ramas recursivas
         function buildTreeHTML(parentId, renderedIds) {
-            // Filtrar hijos ignorando si son cónyuges ya renderizados en el nodo superior
             const children = familyData.filter(m => m.parentId === parentId && !renderedIds.has(m.id) && !m.spouseId);
             
-            // Buscar también si el cónyuge tiene hijos registrados bajo su ID
             const parentNode = familyData.find(m => m.id === parentId);
             if (parentNode && parentNode.spouseId) {
                 const spouseChildren = familyData.filter(m => m.parentId === parentNode.spouseId && !renderedIds.has(m.id));
@@ -439,7 +441,6 @@
                 html += '<li><div class="node-group">';
                 html += getCardHTML(child);
 
-                // Si este hijo tiene esposo/a, los unimos de lado
                 if (child.spouseId) {
                     const spouse = familyData.find(m => m.id === child.spouseId);
                     if (spouse && !renderedIds.has(spouse.id)) {
@@ -465,10 +466,9 @@
             }
 
             let renderedIds = new Set();
-            // Raíces primarias (Nodos sin padres)
+            // Identificar los nodos raíces verdaderos (no tienen parentId y no son cónyuges subordinados en el render)
             const rootNodes = familyData.filter(m => m.parentId === null && !m.spouseId);
             
-            // Si por descarte el primer nodo se creó como pareja de alguien pero quedó huérfano de nodo superior
             if(rootNodes.length === 0 && familyData.length > 0) {
                 rootNodes.push(familyData[0]);
             }
