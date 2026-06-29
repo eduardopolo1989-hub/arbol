@@ -31,7 +31,6 @@
             margin: 0 auto;
         }
 
-        /* Formulario lateral fijo */
         .form-section {
             background: var(--card-bg);
             padding: 20px;
@@ -50,7 +49,6 @@
             transition: color 0.3s;
         }
 
-        /* Estado Visual de Edición */
         .form-section.editing-mode h2 {
             color: var(--success-color);
             border-bottom-color: var(--success-color);
@@ -109,7 +107,6 @@
         .btn-cancel { background-color: #94a3b8; }
         .btn-cancel:hover { background-color: #64748b; }
 
-        /* Lienzo del Árbol */
         .tree-viewport {
             background: var(--card-bg);
             padding: 40px;
@@ -121,7 +118,6 @@
             justify-content: center;
         }
 
-        /* --- Estructura del Árbol --- */
         .tree, .tree ul, .tree li {
             list-style-type: none;
             margin: 0;
@@ -147,7 +143,6 @@
 
         .node-group { display: inline-flex; align-items: flex-start; gap: 10px; position: relative; }
 
-        /* --- Estilo de las Tarjetas --- */
         .member-card {
             background: #fff;
             border: 2px solid #e2e8f0;
@@ -168,7 +163,6 @@
             box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
         }
 
-        /* Indicador visual de que es editable */
         .member-card::after {
             content: '✏️ Editar';
             position: absolute;
@@ -283,19 +277,16 @@
             document.getElementById('relationshipGroup').classList.toggle('hidden', relativeSelect === 'none');
         }
 
-        // --- ENTRAR EN MODO EDICIÓN ---
         function editMember(id) {
             const member = familyData.find(m => m.id === id);
             if (!member) return;
 
-            // Cambiar estética del formulario
             document.getElementById('formWrapper').classList.add('editing-mode');
             document.getElementById('formTitle').textContent = "Editar Familiar";
             document.getElementById('btnSubmit').textContent = "Guardar Cambios";
             document.getElementById('btnSubmit').style.backgroundColor = "var(--success-color)";
             document.getElementById('btnCancel').classList.remove('hidden');
 
-            // Cargar datos ocultos y básicos
             document.getElementById('editingMemberId').value = member.id;
             document.getElementById('names').value = member.name.split(' ')[0] || '';
             document.getElementById('lastNames').value = member.name.split(' ').slice(1).join(' ') || '';
@@ -306,10 +297,8 @@
                 document.getElementById('deathYear').value = member.death;
             }
 
-            // Actualizar selectores excluyendo a la persona que se está editando
             updateRelativeSelectors(member.id);
 
-            // Re-vincular relación visual si ya tiene una asignada
             if (member.parentId) {
                 document.getElementById('relativeSelect').value = member.parentId;
                 document.getElementById('relationshipType').value = 'hijo';
@@ -317,7 +306,6 @@
                 document.getElementById('relativeSelect').value = member.spouseId;
                 document.getElementById('relationshipType').value = 'esposo';
             } else {
-                // Buscar si es padre de alguien
                 const child = familyData.find(m => m.parentId === member.id);
                 if (child) {
                     document.getElementById('relativeSelect').value = child.id;
@@ -329,7 +317,6 @@
             toggleRelationshipType();
         }
 
-        // --- SALIR DEL MODO EDICIÓN / LIMPIAR ---
         function resetFormToCreation() {
             document.getElementById('formWrapper').classList.remove('editing-mode');
             document.getElementById('formTitle').textContent = "Registrar Familiar";
@@ -360,9 +347,7 @@
             let currentMember;
 
             if (editingId) {
-                // Modo Edición: Modificar objeto existente
                 currentMember = familyData.find(m => m.id === editingId);
-                // Limpiar sus relaciones anteriores antes de re-calcular
                 if (currentMember.spouseId) {
                     const oldSpouse = familyData.find(m => m.id === currentMember.spouseId);
                     if (oldSpouse) oldSpouse.spouseId = null;
@@ -374,7 +359,6 @@
                 currentMember.parentId = null;
                 currentMember.spouseId = null;
             } else {
-                // Modo Creación: Crear objeto nuevo
                 currentMember = {
                     id: 'mem_' + Date.now(),
                     name: `${names} ${lastNames}`,
@@ -387,7 +371,6 @@
                 };
             }
 
-            // --- Lógica del Motor de Relaciones e Interconexión ---
             if (relativeId !== 'none') {
                 const relative = familyData.find(m => m.id === relativeId);
                 
@@ -399,12 +382,13 @@
                     currentMember.parentId = relative.parentId;
                 } else if (relationshipType === 'esposo') {
                     currentMember.spouseId = relative.id;
-                    currentMember.parentId = relative.parentId;
                     relative.spouseId = currentMember.id;
+                    // Comparten el mismo padre de manera visual si es necesario, 
+                    // pero para evitar bucles se mantiene parentId de forma independiente
+                    currentMember.parentId = relative.parentId; 
                 }
             }
 
-            // Procesar foto si se subió una nueva
             if (photoInput.files && photoInput.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(event) {
@@ -430,7 +414,7 @@
             relativeSelect.innerHTML = '<option value="none">No, es miembro raíz (independiente)</option>';
             
             familyData.forEach(m => {
-                if (excludeId && m.id === excludeId) return; // Ocultarse a sí mismo en edición
+                if (excludeId && m.id === excludeId) return;
                 const option = document.createElement('option');
                 option.value = m.id;
                 option.textContent = m.name;
@@ -441,7 +425,6 @@
         function getCardHTML(member) {
             const dateText = member.isAlive ? `b. ${member.birth}` : `${member.birth} - ${member.death}`;
             const dotClass = member.isAlive ? 'dot-alive' : 'dot-deceased';
-            // Evento onclick inyectado dinámicamente para disparar la edición
             return `
                 <div class="member-card" onclick="editMember('${member.id}')" title="Haz clic para editar">
                     <img src="${member.photo}" class="member-photo">
@@ -453,23 +436,33 @@
             `;
         }
 
+        // --- FUNCIÓN RECURSIVA CORREGIDA ---
         function buildTreeHTML(parentId, renderedIds) {
-            const children = familyData.filter(m => m.parentId === parentId && !renderedIds.has(m.id) && !m.spouseId);
+            // Buscamos los hijos directos del nodo padre actual
+            const children = familyData.filter(m => m.parentId === parentId && !renderedIds.has(m.id));
             
+            // Si el padre tiene una pareja, también recolectamos los hijos asignados a esa pareja
             const parentNode = familyData.find(m => m.id === parentId);
             if (parentNode && parentNode.spouseId) {
                 const spouseChildren = familyData.filter(m => m.parentId === parentNode.spouseId && !renderedIds.has(m.id));
-                children.push(...spouseChildren);
+                spouseChildren.forEach(c => {
+                    if(!children.some(existing => existing.id === c.id)) {
+                        children.push(c);
+                    }
+                });
             }
 
             if (children.length === 0) return '';
 
             let html = '<ul>';
             children.forEach(child => {
+                if (renderedIds.has(child.id)) return;
                 renderedIds.add(child.id);
+
                 html += '<li><div class="node-group">';
                 html += getCardHTML(child);
 
+                // Vinculación de pareja horizontal estable
                 if (child.spouseId) {
                     const spouse = familyData.find(m => m.id === child.spouseId);
                     if (spouse && !renderedIds.has(spouse.id)) {
@@ -480,6 +473,7 @@
                 }
                 
                 html += '</div>';
+                // Llamada recursiva para traer los descendientes del hijo actual
                 html += buildTreeHTML(child.id, renderedIds);
                 html += '</li>';
             });
@@ -495,11 +489,8 @@
             }
 
             let renderedIds = new Set();
-            const rootNodes = familyData.filter(m => m.parentId === null && !m.spouseId);
-            
-            if(rootNodes.length === 0 && familyData.length > 0) {
-                rootNodes.push(familyData[0]);
-            }
+            // Selección de raíces estables: Nodos sin padres que no sean la pareja secundaria ya procesada
+            const rootNodes = familyData.filter(m => m.parentId === null);
 
             let finalHTML = '';
             rootNodes.forEach(root => {
@@ -511,7 +502,7 @@
 
                 if (root.spouseId) {
                     const spouse = familyData.find(m => m.id === root.spouseId);
-                    if (spouse) {
+                    if (spouse && !renderedIds.has(spouse.id)) {
                         renderedIds.add(spouse.id);
                         finalHTML += `<div class="spouse-connection"></div>`;
                         finalHTML += getCardHTML(spouse);
@@ -520,10 +511,13 @@
 
                 finalHTML += '</div>';
                 finalHTML += buildTreeHTML(root.id, renderedIds);
+                if (root.spouseId) {
+                    finalHTML += buildTreeHTML(root.spouseId, renderedIds);
+                }
                 finalHTML += '</li></ul>';
             });
 
-            container.innerHTML = finalHTML;
+            container.innerHTML = finalHTML || '<p id="emptyMessage">Error al procesar las relaciones del árbol.</p>';
         }
     </script>
 </body>
