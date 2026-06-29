@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Árbol Genealógico Jerárquico con Líneas</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --line-color: #94a3b8;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: var(--primary-color);
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 30px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* Formulario lateral fijo */
+        .form-section {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        .form-section h2 {
+            margin-top: 0;
+            font-size: 1.4rem;
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-sizing: border-box;
+            background-color: #fff;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input { width: auto; }
+        .hidden { display: none; }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover { background-color: #2980b9; }
+
+        /* Lienzo del Árbol (Scroll Horizontal y Vertical si crece mucho) */
+        .tree-viewport {
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            overflow-x: auto;
+            min-height: 80vh;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* --- Estructura CSS del Árbol de Líneas (Efecto Organigrama) --- */
+        .tree, .tree ul, .tree li {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            position: relative;
+        }
+
+        .tree {
+            display: flex;
+            justify-content: center;
+        }
+
+        .tree ul {
+            display: flex;
+            justify-content: center;
+            position: relative;
+            padding-top: 20px;
+        }
+
+        /* Línea vertical descendente desde el padre */
+        .tree li {
+            text-align: center;
+            position: relative;
+            padding: 20px 10px 0 10px;
+        }
+
+        /* Conectores horizontales superiores entre hermanos */
+        .tree li::before, .tree li::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 50%;
+            border-top: 2px solid var(--line-color);
+            width: 50%;
+            height: 20px;
+        }
+        .tree li::after {
+            right: auto;
+            left: 50%;
+            border-left: 2px solid var(--line-color);
+        }
+
+        /* Quitar conectores en extremos de un único hijo */
+        .tree li:only-child::after, .tree li:only-child::before {
+            display: none;
+        }
+        .tree li:only-child {
+            padding-top: 0;
+        }
+
+        /* Quitar conectores del primer y último hermano */
+        .tree li:first-child::before, .tree li:last-child::after {
+            border: 0 none;
+        }
+        .tree li:last-child::before {
+            border-right: 2px solid var(--line-color);
+            border-radius: 0 5px 0 0;
+        }
+        .tree li:first-child::after {
+            border-radius: 5px 0 0 0;
+        }
+
+        /* Línea vertical que sube desde el bloque de hijos hacia el padre */
+        .tree ul::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            border-left: 2px solid var(--line-color);
+            width: 0;
+            height: 20px;
+        }
+
+        /* --- Estilo de la Tarjeta del Familiar --- */
+        .member-card {
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            width: 170px;
+            padding: 12px;
+            display: inline-block;
+            position: relative;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            z-index: 10;
+            transition: all 0.2s;
+        }
+
+        .member-card:hover {
+            border-color: var(--secondary-color);
+            transform: scale(1.03);
+        }
+
+        .member-photo {
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 8px;
+            display: block;
+            border: 2px solid var(--secondary-color);
+            background: #f8fafc;
+        }
+
+        .member-name {
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .member-dates {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        .dot-alive { background-color: #22c55e; }
+        .dot-deceased { background-color: #ef4444; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <section class="form-section">
+            <h2>Registrar Familiar</h2>
+            <form id="treeForm">
+                <div class="form-group">
+                    <label for="names">Nombres:</label>
+                    <input type="text" id="names" required placeholder="Ej. Carlos Eduardo">
+                </div>
+
+                <div class="form-group">
+                    <label for="lastNames">Apellidos:</label>
+                    <input type="text" id="lastNames" required placeholder="Ej. Polo Velasco">
+                </div>
+
+                <div class="form-group">
+                    <label for="birthYear">Año de Nacimiento:</label>
+                    <input type="number" id="birthYear" min="1700" max="2026" required placeholder="Ej. 1989">
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="isAlive" checked onchange="toggleDeathField()">
+                    <label for="isAlive">¿Está con vida?</label>
+                </div>
+
+                <div class="form-group hidden" id="deathGroup">
+                    <label for="deathYear">Año de Fallecimiento:</label>
+                    <input type="number" id="deathYear" min="1700" max="2026" placeholder="Ej. 2024">
+                </div>
+
+                <div class="form-group">
+                    <label for="parentSelect">¿Quién es su Padre o Madre?</label>
+                    <select id="parentSelect">
+                        <option value="none">Ninguno (Es la raíz/cabeza del árbol)</option>
+                    </select>
+                    <small style="color:#64748b; font-size:0.75rem; display:block; margin-top:4px;">
+                        Al elegir un padre/madre, el sistema calculará automáticamente si es hijo, hermano o nieto en la gráfica.
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="photo">Foto:</label>
+                    <input type="file" id="photo" accept="image/*">
+                </div>
+
+                <button type="submit">Vincular al Árbol</button>
+            </form>
+        </section>
+
+        <main class="tree-viewport">
+            <div class="tree" id="treeContainer">
+                <p id="emptyMessage" style="color: #64748b; padding-top: 40px;">No has agregado ningún miembro aún. Comienza creando la raíz del árbol.</p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Memoria interna para almacenar la estructura de nodos
+        let familyData = [];
+
+        function toggleDeathField() {
+            const isAlive = document.getElementById('isAlive').checked;
+            const deathGroup = document.getElementById('deathGroup');
+            if (isAlive) {
+                deathGroup.classList.add('hidden');
+            } else {
+                deathGroup.classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('treeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const names = document.getElementById('names').value;
+            const lastNames = document.getElementById('lastNames').value;
+            const birthYear = document.getElementById('birthYear').value;
+            const isAlive = document.getElementById('isAlive').checked;
+            const deathYear = document.getElementById('deathYear').value;
+            const parentId = document.getElementById('parentSelect').value;
+            const photoInput = document.getElementById('photo');
+
+            // Crear identificador único para el nodo basado en marcas de tiempo
+            const memberId = 'mem_' + Date.now();
+
+            const newMember = {
+                id: memberId,
+                name: `${names} ${lastNames}`,
+                birth: birthYear,
+                isAlive: isAlive,
+                death: isAlive ? null : deathYear,
+                parentId: parentId === 'none' ? null : parentId,
+                photo: 'https://cdn-icons-png.flaticon.com/512/847/847969.png' // Por defecto
+            };
+
+            if (photoInput.files && photoInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    newMember.photo = event.target.result;
+                    saveAndRender(newMember);
+                };
+                reader.readAsDataURL(photoInput.files[0]);
+            } else {
+                saveAndRender(newMember);
+            }
+        });
+
+        function saveAndRender(member) {
+            familyData.push(member);
+            
+            // Actualizar el selector de padres de forma dinámica
+            const parentSelect = document.getElementById('parentSelect');
+            const option = document.createElement('option');
+            option.value = member.id;
+            option.textContent = member.name;
+            parentSelect.appendChild(option);
+
+            // Re-renderizar todo el árbol gráfico
+            renderTreeGraph();
+
+            // Resetear Formulario
+            document.getElementById('treeForm').reset();
+            toggleDeathField();
+        }
+
+        // Función recursiva que construye el árbol HTML estructurado en sublistas (ul / li)
+        function buildTreeHTML(parentId) {
+            // Filtrar todos los hijos de este parentId
+            const children = familyData.filter(m => m.parentId === parentId);
+            if (children.length === 0) return '';
+
+            let html = '<ul>';
+            children.forEach(child => {
+                const dateText = child.isAlive ? `b. ${child.birth}` : `${child.birth} - ${child.death}`;
+                const dotClass = child.isAlive ? 'dot-alive' : 'dot-deceased';
+
+                html += `
+                    <li>
+                        <div class="member-card">
+                            <img src="${child.photo}" class="member-photo">
+                            <div class="member-name" title="${child.name}">${child.name}</div>
+                            <div class="member-dates">
+                                <span class="status-dot ${dotClass}"></span>${dateText}
+                            </div>
+                        </div>
+                        ${buildTreeHTML(child.id)} </li>
+                `;
+            });
+            html += '</ul>';
+            return html;
+        }
+
+        function renderTreeGraph() {
+            const container = document.getElementById('treeContainer');
+            
+            if (familyData.length === 0) {
+                container.innerHTML = '<p id="emptyMessage">No has agregado ningún miembro aún.</p>';
+                return;
+            }
+
+            // Los nodos raíces son los que no tienen un padre asignado (parentId: null)
+            const rootNodes = familyData.filter(m => m.parentId === null);
+            
+            let finalHTML = '';
+            rootNodes.forEach(root => {
+                const dateText = root.isAlive ? `b. ${root.birth}` : `${root.birth} - ${root.death}`;
+                const dotClass = root.isAlive ? 'dot-alive' : 'dot-deceased';
+
+                finalHTML += `
+                    <ul>
+                        <li>
+                            <div class="member-card" style="border-color: var(--primary-color);">
+                                <img src="${root.photo}" class="member-photo">
+                                <div class="member-name" title="${root.name}">${root.name}</div>
+                                <div class="member-dates">
+                                    <span class="status-dot ${dotClass}"></span>${dateText}
+                                </div>
+                            </div>
+                            ${buildTreeHTML(root.id)}
+                        </li>
+                    </ul>
+                `;
+            });
+
+            container.innerHTML = finalHTML;
+        }
+    </script>
+</body>
+</html>
