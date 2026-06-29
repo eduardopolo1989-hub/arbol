@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Árbol Genealógico Jerárquico con Líneas</title>
+    <title>Árbol Genealógico Inteligente</title>
     <style>
         :root {
             --primary-color: #2c3e50;
             --secondary-color: #3498db;
+            --spouse-color: #e02424;
             --line-color: #94a3b8;
             --bg-color: #f1f5f9;
             --card-bg: #ffffff;
@@ -91,7 +92,7 @@
 
         button:hover { background-color: #2980b9; }
 
-        /* Lienzo del Árbol (Scroll Horizontal y Vertical si crece mucho) */
+        /* Lienzo del Árbol */
         .tree-viewport {
             background: var(--card-bg);
             padding: 40px;
@@ -103,7 +104,7 @@
             justify-content: center;
         }
 
-        /* --- Estructura CSS del Árbol de Líneas (Efecto Organigrama) --- */
+        /* --- Estructura del Árbol Genealógico --- */
         .tree, .tree ul, .tree li {
             list-style-type: none;
             margin: 0;
@@ -123,14 +124,13 @@
             padding-top: 20px;
         }
 
-        /* Línea vertical descendente desde el padre */
         .tree li {
             text-align: center;
             position: relative;
             padding: 20px 10px 0 10px;
         }
 
-        /* Conectores horizontales superiores entre hermanos */
+        /* Líneas horizontales */
         .tree li::before, .tree li::after {
             content: '';
             position: absolute;
@@ -146,7 +146,6 @@
             border-left: 2px solid var(--line-color);
         }
 
-        /* Quitar conectores en extremos de un único hijo */
         .tree li:only-child::after, .tree li:only-child::before {
             display: none;
         }
@@ -154,7 +153,6 @@
             padding-top: 0;
         }
 
-        /* Quitar conectores del primer y último hermano */
         .tree li:first-child::before, .tree li:last-child::after {
             border: 0 none;
         }
@@ -166,7 +164,6 @@
             border-radius: 5px 0 0 0;
         }
 
-        /* Línea vertical que sube desde el bloque de hijos hacia el padre */
         .tree ul::before {
             content: '';
             position: absolute;
@@ -177,13 +174,21 @@
             height: 20px;
         }
 
-        /* --- Estilo de la Tarjeta del Familiar --- */
+        /* Contenedor de bloque para parejas */
+        .node-group {
+            display: inline-flex;
+            align-items: flex-start;
+            gap: 10px;
+            position: relative;
+        }
+
+        /* --- Estilo de las Tarjetas --- */
         .member-card {
             background: #fff;
             border: 2px solid #e2e8f0;
             border-radius: 8px;
-            width: 170px;
-            padding: 12px;
+            width: 150px;
+            padding: 10px;
             display: inline-block;
             position: relative;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
@@ -197,11 +202,11 @@
         }
 
         .member-photo {
-            width: 65px;
-            height: 65px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
             object-fit: cover;
-            margin: 0 auto 8px;
+            margin: 0 auto 6px;
             display: block;
             border: 2px solid var(--secondary-color);
             background: #f8fafc;
@@ -209,7 +214,7 @@
 
         .member-name {
             font-weight: bold;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             margin-bottom: 4px;
             white-space: nowrap;
             overflow: hidden;
@@ -217,19 +222,29 @@
         }
 
         .member-dates {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #64748b;
         }
 
         .status-dot {
-            width: 8px;
-            height: 8px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
             display: inline-block;
             margin-right: 4px;
         }
         .dot-alive { background-color: #22c55e; }
         .dot-deceased { background-color: #ef4444; }
+
+        /* Línea roja horizontal de unión matrimonial */
+        .spouse-connection {
+            position: absolute;
+            top: 40px;
+            left: 145px;
+            width: 20px;
+            border-top: 2px dashed var(--spouse-color);
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
@@ -263,14 +278,22 @@
                     <input type="number" id="deathYear" min="1700" max="2026" placeholder="Ej. 2024">
                 </div>
 
+                <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 15px 0;">
+
                 <div class="form-group">
-                    <label for="parentSelect">¿Quién es su Padre o Madre?</label>
-                    <select id="parentSelect">
-                        <option value="none">Ninguno (Es la raíz/cabeza del árbol)</option>
+                    <label for="relativeSelect">¿Tiene relación con algún miembro ya creado?</label>
+                    <select id="relativeSelect" onchange="toggleRelationshipType()">
+                        <option value="none">No, es el miembro inicial del árbol</option>
                     </select>
-                    <small style="color:#64748b; font-size:0.75rem; display:block; margin-top:4px;">
-                        Al elegir un padre/madre, el sistema calculará automáticamente si es hijo, hermano o nieto en la gráfica.
-                    </small>
+                </div>
+
+                <div class="form-group hidden" id="relationshipGroup">
+                    <label for="relationshipType">¿Qué es de esa persona?</label>
+                    <select id="relationshipType">
+                        <option value="hijo">Es su Hijo / Hija</option>
+                        <option value="hermano">Es su Hermano / Hermana</option>
+                        <option value="esposo">Es su Esposo / Esposa</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -284,23 +307,24 @@
 
         <main class="tree-viewport">
             <div class="tree" id="treeContainer">
-                <p id="emptyMessage" style="color: #64748b; padding-top: 40px;">No has agregado ningún miembro aún. Comienza creando la raíz del árbol.</p>
+                <p id="emptyMessage" style="color: #64748b; padding-top: 40px;">No has agregado ningún miembro aún. Comienza creando al primer miembro de la familia.</p>
             </div>
         </main>
     </div>
 
     <script>
-        // Memoria interna para almacenar la estructura de nodos
         let familyData = [];
 
         function toggleDeathField() {
             const isAlive = document.getElementById('isAlive').checked;
             const deathGroup = document.getElementById('deathGroup');
-            if (isAlive) {
-                deathGroup.classList.add('hidden');
-            } else {
-                deathGroup.classList.remove('hidden');
-            }
+            deathGroup.classList.toggle('hidden', isAlive);
+        }
+
+        function toggleRelationshipType() {
+            const relativeSelect = document.getElementById('relativeSelect').value;
+            const relationshipGroup = document.getElementById('relationshipGroup');
+            relationshipGroup.classList.toggle('hidden', relativeSelect === 'none');
         }
 
         document.getElementById('treeForm').addEventListener('submit', function(e) {
@@ -311,11 +335,27 @@
             const birthYear = document.getElementById('birthYear').value;
             const isAlive = document.getElementById('isAlive').checked;
             const deathYear = document.getElementById('deathYear').value;
-            const parentId = document.getElementById('parentSelect').value;
+            const relativeId = document.getElementById('relativeSelect').value;
+            const relationshipType = document.getElementById('relationshipType').value;
             const photoInput = document.getElementById('photo');
 
-            // Crear identificador único para el nodo basado en marcas de tiempo
             const memberId = 'mem_' + Date.now();
+            let parentId = null;
+            let spouseId = null;
+
+            // --- Motor de cálculo de relaciones ---
+            if (relativeId !== 'none') {
+                const relative = familyData.find(m => m.id === relativeId);
+                
+                if (relationshipType === 'hijo') {
+                    parentId = relative.id;
+                } else if (relationshipType === 'hermano') {
+                    parentId = relative.parentId; // Comparte el mismo padre
+                } else if (relationshipType === 'esposo') {
+                    spouseId = relative.id;
+                    parentId = relative.parentId; // Se renderiza en el mismo nivel/entorno
+                }
+            }
 
             const newMember = {
                 id: memberId,
@@ -323,9 +363,16 @@
                 birth: birthYear,
                 isAlive: isAlive,
                 death: isAlive ? null : deathYear,
-                parentId: parentId === 'none' ? null : parentId,
-                photo: 'https://cdn-icons-png.flaticon.com/512/847/847969.png' // Por defecto
+                parentId: parentId,
+                spouseId: spouseId,
+                photo: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
             };
+
+            // Vincular de forma bidireccional si es esposo/a
+            if (spouseId) {
+                const spouse = familyData.find(m => m.id === spouseId);
+                if (spouse) spouse.spouseId = memberId;
+            }
 
             if (photoInput.files && photoInput.files[0]) {
                 const reader = new FileReader();
@@ -342,43 +389,69 @@
         function saveAndRender(member) {
             familyData.push(member);
             
-            // Actualizar el selector de padres de forma dinámica
-            const parentSelect = document.getElementById('parentSelect');
+            // Actualizar el selector de familiares
+            const relativeSelect = document.getElementById('relativeSelect');
             const option = document.createElement('option');
             option.value = member.id;
             option.textContent = member.name;
-            parentSelect.appendChild(option);
+            relativeSelect.appendChild(option);
 
-            // Re-renderizar todo el árbol gráfico
             renderTreeGraph();
 
-            // Resetear Formulario
             document.getElementById('treeForm').reset();
             toggleDeathField();
+            toggleRelationshipType();
         }
 
-        // Función recursiva que construye el árbol HTML estructurado en sublistas (ul / li)
-        function buildTreeHTML(parentId) {
-            // Filtrar todos los hijos de este parentId
-            const children = familyData.filter(m => m.parentId === parentId);
+        // Generar tarjeta HTML individual
+        function getCardHTML(member) {
+            const dateText = member.isAlive ? `b. ${member.birth}` : `${member.birth} - ${member.death}`;
+            const dotClass = member.isAlive ? 'dot-alive' : 'dot-deceased';
+            return `
+                <div class="member-card" id="card_${member.id}">
+                    <img src="${member.photo}" class="member-photo">
+                    <div class="member-name" title="${member.name}">${member.name}</div>
+                    <div class="member-dates">
+                        <span class="status-dot ${dotClass}"></span>${dateText}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Construir ramas recursivas
+        function buildTreeHTML(parentId, renderedIds) {
+            // Filtrar hijos ignorando si son cónyuges ya renderizados en el nodo superior
+            const children = familyData.filter(m => m.parentId === parentId && !renderedIds.has(m.id) && !m.spouseId);
+            
+            // Buscar también si el cónyuge tiene hijos registrados bajo su ID
+            const parentNode = familyData.find(m => m.id === parentId);
+            if (parentNode && parentNode.spouseId) {
+                const spouseChildren = familyData.filter(m => m.parentId === parentNode.spouseId && !renderedIds.has(m.id));
+                children.push(...spouseChildren);
+            }
+
             if (children.length === 0) return '';
 
             let html = '<ul>';
             children.forEach(child => {
-                const dateText = child.isAlive ? `b. ${child.birth}` : `${child.birth} - ${child.death}`;
-                const dotClass = child.isAlive ? 'dot-alive' : 'dot-deceased';
+                renderedIds.add(child.id);
+                
+                html += '<li><div class="node-group">';
+                html += getCardHTML(child);
 
-                html += `
-                    <li>
-                        <div class="member-card">
-                            <img src="${child.photo}" class="member-photo">
-                            <div class="member-name" title="${child.name}">${child.name}</div>
-                            <div class="member-dates">
-                                <span class="status-dot ${dotClass}"></span>${dateText}
-                            </div>
-                        </div>
-                        ${buildTreeHTML(child.id)} </li>
-                `;
+                // Si este hijo tiene esposo/a, los unimos de lado
+                if (child.spouseId) {
+                    const spouse = familyData.find(m => m.id === child.spouseId);
+                    if (spouse && !renderedIds.has(spouse.id)) {
+                        renderedIds.add(spouse.id);
+                        html += `<div class="spouse-connection"></div>`;
+                        html += getCardHTML(spouse);
+                    }
+                }
+                
+                html += '</div>';
+                html += buildTreeHTML(child.id, renderedIds);
+                html += '</li>';
             });
             html += '</ul>';
             return html;
@@ -386,34 +459,40 @@
 
         function renderTreeGraph() {
             const container = document.getElementById('treeContainer');
-            
             if (familyData.length === 0) {
                 container.innerHTML = '<p id="emptyMessage">No has agregado ningún miembro aún.</p>';
                 return;
             }
 
-            // Los nodos raíces son los que no tienen un padre asignado (parentId: null)
-            const rootNodes = familyData.filter(m => m.parentId === null);
+            let renderedIds = new Set();
+            // Raíces primarias (Nodos sin padres)
+            const rootNodes = familyData.filter(m => m.parentId === null && !m.spouseId);
             
+            // Si por descarte el primer nodo se creó como pareja de alguien pero quedó huérfano de nodo superior
+            if(rootNodes.length === 0 && familyData.length > 0) {
+                rootNodes.push(familyData[0]);
+            }
+
             let finalHTML = '';
             rootNodes.forEach(root => {
-                const dateText = root.isAlive ? `b. ${root.birth}` : `${root.birth} - ${root.death}`;
-                const dotClass = root.isAlive ? 'dot-alive' : 'dot-deceased';
+                if (renderedIds.has(root.id)) return;
+                renderedIds.add(root.id);
 
-                finalHTML += `
-                    <ul>
-                        <li>
-                            <div class="member-card" style="border-color: var(--primary-color);">
-                                <img src="${root.photo}" class="member-photo">
-                                <div class="member-name" title="${root.name}">${root.name}</div>
-                                <div class="member-dates">
-                                    <span class="status-dot ${dotClass}"></span>${dateText}
-                                </div>
-                            </div>
-                            ${buildTreeHTML(root.id)}
-                        </li>
-                    </ul>
-                `;
+                finalHTML += '<ul><li><div class="node-group">';
+                finalHTML += getCardHTML(root);
+
+                if (root.spouseId) {
+                    const spouse = familyData.find(m => m.id === root.spouseId);
+                    if (spouse) {
+                        renderedIds.add(spouse.id);
+                        finalHTML += `<div class="spouse-connection"></div>`;
+                        finalHTML += getCardHTML(spouse);
+                    }
+                }
+
+                finalHTML += '</div>';
+                finalHTML += buildTreeHTML(root.id, renderedIds);
+                finalHTML += '</li></ul>';
             });
 
             container.innerHTML = finalHTML;
