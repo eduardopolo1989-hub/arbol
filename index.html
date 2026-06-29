@@ -356,8 +356,7 @@
                 currentMember.birth = birthYear;
                 currentMember.isAlive = isAlive;
                 currentMember.death = isAlive ? null : deathYear;
-                currentMember.parentId = null;
-                currentMember.spouseId = null;
+                // Al editar guardamos la estructura previa para recalcular abajo
             } else {
                 currentMember = {
                     id: 'mem_' + Date.now(),
@@ -371,11 +370,19 @@
                 };
             }
 
+            // --- REESTRUCTURACIÓN DEL MOTOR DE RELACIONES (CORREGIDO) ---
             if (relativeId !== 'none') {
                 const relative = familyData.find(m => m.id === relativeId);
                 
                 if (relationshipType === 'padre') {
+                    // CAMBIO CLAVE: El miembro existente ahora apunta al nuevo miembro como su padre.
                     relative.parentId = currentMember.id;
+                    
+                    // Si el miembro seleccionado ya tenía una pareja, el nuevo miembro también se convierte en el padre de la pareja
+                    if (relative.spouseId) {
+                        const companion = familyData.find(m => m.id === relative.spouseId);
+                        if (companion) companion.parentId = currentMember.id;
+                    }
                 } else if (relationshipType === 'hijo') {
                     currentMember.parentId = relative.id;
                 } else if (relationshipType === 'hermano') {
@@ -383,9 +390,12 @@
                 } else if (relationshipType === 'esposo') {
                     currentMember.spouseId = relative.id;
                     relative.spouseId = currentMember.id;
-                    // Comparten el mismo padre de manera visual si es necesario, 
-                    // pero para evitar bucles se mantiene parentId de forma independiente
                     currentMember.parentId = relative.parentId; 
+                }
+            } else {
+                // Si se selecciona "Ninguno" y estamos editando, limpia sus ligaduras antiguas
+                if (editingId) {
+                    currentMember.parentId = null;
                 }
             }
 
@@ -436,12 +446,9 @@
             `;
         }
 
-        // --- FUNCIÓN RECURSIVA CORREGIDA ---
         function buildTreeHTML(parentId, renderedIds) {
-            // Buscamos los hijos directos del nodo padre actual
             const children = familyData.filter(m => m.parentId === parentId && !renderedIds.has(m.id));
             
-            // Si el padre tiene una pareja, también recolectamos los hijos asignados a esa pareja
             const parentNode = familyData.find(m => m.id === parentId);
             if (parentNode && parentNode.spouseId) {
                 const spouseChildren = familyData.filter(m => m.parentId === parentNode.spouseId && !renderedIds.has(m.id));
@@ -462,7 +469,6 @@
                 html += '<li><div class="node-group">';
                 html += getCardHTML(child);
 
-                // Vinculación de pareja horizontal estable
                 if (child.spouseId) {
                     const spouse = familyData.find(m => m.id === child.spouseId);
                     if (spouse && !renderedIds.has(spouse.id)) {
@@ -473,7 +479,6 @@
                 }
                 
                 html += '</div>';
-                // Llamada recursiva para traer los descendientes del hijo actual
                 html += buildTreeHTML(child.id, renderedIds);
                 html += '</li>';
             });
@@ -489,12 +494,18 @@
             }
 
             let renderedIds = new Set();
-            // Selección de raíces estables: Nodos sin padres que no sean la pareja secundaria ya procesada
+            
+            // FILTRADO DINÁMICO DE VERDADERAS RAÍCES:
+            // Nodos que legítimamente no tienen padres registrados en el arreglo actual.
             const rootNodes = familyData.filter(m => m.parentId === null);
 
             let finalHTML = '';
             rootNodes.forEach(root => {
                 if (renderedIds.has(root.id)) return;
+                
+                // Si es la pareja de un nodo raíz ya procesado horizontalmente, no lo volvemos a pintar como raíz separada
+                if (root.spouseId && renderedIds.has(root.spouseId)) return;
+
                 renderedIds.add(root.id);
 
                 finalHTML += '<ul><li><div class="node-group">';
