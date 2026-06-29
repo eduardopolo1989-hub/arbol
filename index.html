@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Árbol Genealógico Inteligente</title>
+    <title>Árbol Genealógico Inteligente con Edición</title>
     <style>
         :root {
             --primary-color: #2c3e50;
             --secondary-color: #3498db;
+            --success-color: #27ae60;
             --spouse-color: #e02424;
             --line-color: #94a3b8;
             --bg-color: #f1f5f9;
@@ -46,6 +47,13 @@
             font-size: 1.4rem;
             border-bottom: 2px solid var(--secondary-color);
             padding-bottom: 8px;
+            transition: color 0.3s;
+        }
+
+        /* Estado Visual de Edición */
+        .form-section.editing-mode h2 {
+            color: var(--success-color);
+            border-bottom-color: var(--success-color);
         }
 
         .form-group {
@@ -77,10 +85,15 @@
         .checkbox-group input { width: auto; }
         .hidden { display: none; }
 
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
         button {
             width: 100%;
             padding: 10px;
-            background-color: var(--secondary-color);
             color: white;
             border: none;
             border-radius: 6px;
@@ -90,7 +103,11 @@
             transition: background 0.2s;
         }
 
-        button:hover { background-color: #2980b9; }
+        .btn-submit { background-color: var(--secondary-color); }
+        .btn-submit:hover { background-color: #2980b9; }
+        
+        .btn-cancel { background-color: #94a3b8; }
+        .btn-cancel:hover { background-color: #64748b; }
 
         /* Lienzo del Árbol */
         .tree-viewport {
@@ -104,7 +121,7 @@
             justify-content: center;
         }
 
-        /* --- Estructura del Árbol Genealógico --- */
+        /* --- Estructura del Árbol --- */
         .tree, .tree ul, .tree li {
             list-style-type: none;
             margin: 0;
@@ -112,75 +129,23 @@
             position: relative;
         }
 
-        .tree {
-            display: flex;
-            justify-content: center;
-        }
+        .tree { display: flex; justify-content: center; }
+        .tree ul { display: flex; justify-content: center; position: relative; padding-top: 20px; }
+        .tree li { text-align: center; position: relative; padding: 20px 10px 0 10px; }
 
-        .tree ul {
-            display: flex;
-            justify-content: center;
-            position: relative;
-            padding-top: 20px;
-        }
-
-        .tree li {
-            text-align: center;
-            position: relative;
-            padding: 20px 10px 0 10px;
-        }
-
-        /* Líneas horizontales */
         .tree li::before, .tree li::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 50%;
-            border-top: 2px solid var(--line-color);
-            width: 50%;
-            height: 20px;
+            content: ''; position: absolute; top: 0; right: 50%;
+            border-top: 2px solid var(--line-color); width: 50%; height: 20px;
         }
-        .tree li::after {
-            right: auto;
-            left: 50%;
-            border-left: 2px solid var(--line-color);
-        }
+        .tree li::after { right: auto; left: 50%; border-left: 2px solid var(--line-color); }
+        .tree li:only-child::after, .tree li:only-child::before { display: none; }
+        .tree li:only-child { padding-top: 0; }
+        .tree li:first-child::before, .tree li:last-child::after { border: 0 none; }
+        .tree li:last-child::before { border-right: 2px solid var(--line-color); border-radius: 0 5px 0 0; }
+        .tree li:first-child::after { border-radius: 5px 0 0 0; }
+        .tree ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid var(--line-color); width: 0; height: 20px; }
 
-        .tree li:only-child::after, .tree li:only-child::before {
-            display: none;
-        }
-        .tree li:only-child {
-            padding-top: 0;
-        }
-
-        .tree li:first-child::before, .tree li:last-child::after {
-            border: 0 none;
-        }
-        .tree li:last-child::before {
-            border-right: 2px solid var(--line-color);
-            border-radius: 0 5px 0 0;
-        }
-        .tree li:first-child::after {
-            border-radius: 5px 0 0 0;
-        }
-
-        .tree ul::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 50%;
-            border-left: 2px solid var(--line-color);
-            width: 0;
-            height: 20px;
-        }
-
-        /* Contenedor de bloque para parejas */
-        .node-group {
-            display: inline-flex;
-            align-items: flex-start;
-            gap: 10px;
-            position: relative;
-        }
+        .node-group { display: inline-flex; align-items: flex-start; gap: 10px; position: relative; }
 
         /* --- Estilo de las Tarjetas --- */
         .member-card {
@@ -193,67 +158,55 @@
             position: relative;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
             z-index: 10;
+            cursor: pointer;
             transition: all 0.2s;
         }
 
         .member-card:hover {
             border-color: var(--secondary-color);
-            transform: scale(1.03);
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
         }
+
+        /* Indicador visual de que es editable */
+        .member-card::after {
+            content: '✏️ Editar';
+            position: absolute;
+            bottom: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary-color);
+            color: white;
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .member-card:hover::after { opacity: 1; }
 
         .member-photo {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin: 0 auto 6px;
-            display: block;
-            border: 2px solid var(--secondary-color);
-            background: #f8fafc;
+            width: 60px; height: 60px; border-radius: 50%; object-fit: cover;
+            margin: 0 auto 6px; display: block; border: 2px solid var(--secondary-color); background: #f8fafc;
         }
 
-        .member-name {
-            font-weight: bold;
-            font-size: 0.85rem;
-            margin-bottom: 4px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .member-dates {
-            font-size: 0.7rem;
-            color: #64748b;
-        }
-
-        .status-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 4px;
-        }
+        .member-name { font-weight: bold; font-size: 0.85rem; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .member-dates { font-size: 0.7rem; color: #64748b; }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; }
         .dot-alive { background-color: #22c55e; }
         .dot-deceased { background-color: #ef4444; }
 
-        /* Línea roja horizontal de unión matrimonial */
-        .spouse-connection {
-            position: absolute;
-            top: 40px;
-            left: 145px;
-            width: 20px;
-            border-top: 2px dashed var(--spouse-color);
-            z-index: 1;
-        }
+        .spouse-connection { position: absolute; top: 40px; left: 145px; width: 20px; border-top: 2px dashed var(--spouse-color); z-index: 1; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <!-- Formulario -->
-        <section class="form-section">
-            <h2>Registrar Familiar</h2>
+        <section class="form-section" id="formWrapper">
+            <h2 id="formTitle">Registrar Familiar</h2>
             <form id="treeForm">
+                <input type="hidden" id="editingMemberId" value="">
+
                 <div class="form-group">
                     <label for="names">Nombres:</label>
                     <input type="text" id="names" required placeholder="Ej. Carlos Eduardo">
@@ -281,11 +234,10 @@
 
                 <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 15px 0;">
 
-                <!-- LÓGICA DE PARENTESCO EVOLUCIONADA -->
                 <div class="form-group">
-                    <label for="relativeSelect">¿Tiene relación con algún miembro ya creado?</label>
+                    <label for="relativeSelect">¿Tiene relación con algún miembro?</label>
                     <select id="relativeSelect" onchange="toggleRelationshipType()">
-                        <option value="none">No, es el miembro inicial del árbol</option>
+                        <option value="none">No, es miembro raíz (independiente)</option>
                     </select>
                 </div>
 
@@ -304,11 +256,13 @@
                     <input type="file" id="photo" accept="image/*">
                 </div>
 
-                <button type="submit">Vincular al Árbol</button>
+                <div class="button-group">
+                    <button type="submit" class="btn-submit" id="btnSubmit">Vincular al Árbol</button>
+                    <button type="button" class="btn-cancel hidden" id="btnCancel" onclick="resetFormToCreation()">Cancelar Edición</button>
+                </div>
             </form>
         </section>
 
-        <!-- Lienzo del árbol -->
         <main class="tree-viewport">
             <div class="tree" id="treeContainer">
                 <p id="emptyMessage" style="color: #64748b; padding-top: 40px;">No has agregado ningún miembro aún. Comienza creando al primer miembro de la familia.</p>
@@ -321,19 +275,79 @@
 
         function toggleDeathField() {
             const isAlive = document.getElementById('isAlive').checked;
-            const deathGroup = document.getElementById('deathGroup');
-            deathGroup.classList.toggle('hidden', isAlive);
+            document.getElementById('deathGroup').classList.toggle('hidden', isAlive);
         }
 
         function toggleRelationshipType() {
             const relativeSelect = document.getElementById('relativeSelect').value;
-            const relationshipGroup = document.getElementById('relationshipGroup');
-            relationshipGroup.classList.toggle('hidden', relativeSelect === 'none');
+            document.getElementById('relationshipGroup').classList.toggle('hidden', relativeSelect === 'none');
+        }
+
+        // --- ENTRAR EN MODO EDICIÓN ---
+        function editMember(id) {
+            const member = familyData.find(m => m.id === id);
+            if (!member) return;
+
+            // Cambiar estética del formulario
+            document.getElementById('formWrapper').classList.add('editing-mode');
+            document.getElementById('formTitle').textContent = "Editar Familiar";
+            document.getElementById('btnSubmit').textContent = "Guardar Cambios";
+            document.getElementById('btnSubmit').style.backgroundColor = "var(--success-color)";
+            document.getElementById('btnCancel').classList.remove('hidden');
+
+            // Cargar datos ocultos y básicos
+            document.getElementById('editingMemberId').value = member.id;
+            document.getElementById('names').value = member.name.split(' ')[0] || '';
+            document.getElementById('lastNames').value = member.name.split(' ').slice(1).join(' ') || '';
+            document.getElementById('birthYear').value = member.birth;
+            document.getElementById('isAlive').checked = member.isAlive;
+            toggleDeathField();
+            if (!member.isAlive) {
+                document.getElementById('deathYear').value = member.death;
+            }
+
+            // Actualizar selectores excluyendo a la persona que se está editando
+            updateRelativeSelectors(member.id);
+
+            // Re-vincular relación visual si ya tiene una asignada
+            if (member.parentId) {
+                document.getElementById('relativeSelect').value = member.parentId;
+                document.getElementById('relationshipType').value = 'hijo';
+            } else if (member.spouseId) {
+                document.getElementById('relativeSelect').value = member.spouseId;
+                document.getElementById('relationshipType').value = 'esposo';
+            } else {
+                // Buscar si es padre de alguien
+                const child = familyData.find(m => m.parentId === member.id);
+                if (child) {
+                    document.getElementById('relativeSelect').value = child.id;
+                    document.getElementById('relationshipType').value = 'padre';
+                } else {
+                    document.getElementById('relativeSelect').value = 'none';
+                }
+            }
+            toggleRelationshipType();
+        }
+
+        // --- SALIR DEL MODO EDICIÓN / LIMPIAR ---
+        function resetFormToCreation() {
+            document.getElementById('formWrapper').classList.remove('editing-mode');
+            document.getElementById('formTitle').textContent = "Registrar Familiar";
+            document.getElementById('btnSubmit').textContent = "Vincular al Árbol";
+            document.getElementById('btnSubmit').style.backgroundColor = "var(--secondary-color)";
+            document.getElementById('btnCancel').classList.add('hidden');
+            document.getElementById('editingMemberId').value = "";
+            
+            document.getElementById('treeForm').reset();
+            toggleDeathField();
+            updateRelativeSelectors();
+            toggleRelationshipType();
         }
 
         document.getElementById('treeForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
+            const editingId = document.getElementById('editingMemberId').value;
             const names = document.getElementById('names').value;
             const lastNames = document.getElementById('lastNames').value;
             const birthYear = document.getElementById('birthYear').value;
@@ -343,79 +357,95 @@
             const relationshipType = document.getElementById('relationshipType').value;
             const photoInput = document.getElementById('photo');
 
-            const memberId = 'mem_' + Date.now();
-            let parentId = null;
-            let spouseId = null;
+            let currentMember;
 
-            const newMember = {
-                id: memberId,
-                name: `${names} ${lastNames}`,
-                birth: birthYear,
-                isAlive: isAlive,
-                death: isAlive ? null : deathYear,
-                parentId: null,
-                spouseId: null,
-                photo: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
-            };
+            if (editingId) {
+                // Modo Edición: Modificar objeto existente
+                currentMember = familyData.find(m => m.id === editingId);
+                // Limpiar sus relaciones anteriores antes de re-calcular
+                if (currentMember.spouseId) {
+                    const oldSpouse = familyData.find(m => m.id === currentMember.spouseId);
+                    if (oldSpouse) oldSpouse.spouseId = null;
+                }
+                currentMember.name = `${names} ${lastNames}`;
+                currentMember.birth = birthYear;
+                currentMember.isAlive = isAlive;
+                currentMember.death = isAlive ? null : deathYear;
+                currentMember.parentId = null;
+                currentMember.spouseId = null;
+            } else {
+                // Modo Creación: Crear objeto nuevo
+                currentMember = {
+                    id: 'mem_' + Date.now(),
+                    name: `${names} ${lastNames}`,
+                    birth: birthYear,
+                    isAlive: isAlive,
+                    death: isAlive ? null : deathYear,
+                    parentId: null,
+                    spouseId: null,
+                    photo: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
+                };
+            }
 
-            // --- Lógica del Motor de Relaciones (Incluye Padre/Madre) ---
+            // --- Lógica del Motor de Relaciones e Interconexión ---
             if (relativeId !== 'none') {
                 const relative = familyData.find(m => m.id === relativeId);
                 
                 if (relationshipType === 'padre') {
-                    // El nuevo miembro pasa a ser la cabeza. El pariente seleccionado ahora es su hijo.
-                    relative.parentId = memberId;
+                    relative.parentId = currentMember.id;
                 } else if (relationshipType === 'hijo') {
-                    newMember.parentId = relative.id;
+                    currentMember.parentId = relative.id;
                 } else if (relationshipType === 'hermano') {
-                    newMember.parentId = relative.parentId;
+                    currentMember.parentId = relative.parentId;
                 } else if (relationshipType === 'esposo') {
-                    newMember.spouseId = relative.id;
-                    newMember.parentId = relative.parentId;
-                    relative.spouseId = memberId;
+                    currentMember.spouseId = relative.id;
+                    currentMember.parentId = relative.parentId;
+                    relative.spouseId = currentMember.id;
                 }
             }
 
+            // Procesar foto si se subió una nueva
             if (photoInput.files && photoInput.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(event) {
-                    newMember.photo = event.target.result;
-                    saveAndRender(newMember);
+                    currentMember.photo = event.target.result;
+                    finalizeSubmit(editingId, currentMember);
                 };
                 reader.readAsDataURL(photoInput.files[0]);
             } else {
-                saveAndRender(newMember);
+                finalizeSubmit(editingId, currentMember);
             }
         });
 
-        function saveAndRender(member) {
-            familyData.push(member);
-            
-            // Re-actualizar por completo el selector de familiares disponibles
+        function finalizeSubmit(isEditing, member) {
+            if (!isEditing) {
+                familyData.push(member);
+            }
+            renderTreeGraph();
+            resetFormToCreation();
+        }
+
+        function updateRelativeSelectors(excludeId = null) {
             const relativeSelect = document.getElementById('relativeSelect');
-            relativeSelect.innerHTML = '<option value="none">No, es el miembro inicial del árbol</option>';
+            relativeSelect.innerHTML = '<option value="none">No, es miembro raíz (independiente)</option>';
             
             familyData.forEach(m => {
+                if (excludeId && m.id === excludeId) return; // Ocultarse a sí mismo en edición
                 const option = document.createElement('option');
                 option.value = m.id;
                 option.textContent = m.name;
                 relativeSelect.appendChild(option);
             });
-
-            renderTreeGraph();
-
-            document.getElementById('treeForm').reset();
-            toggleDeathField();
-            toggleRelationshipType();
         }
 
         function getCardHTML(member) {
             const dateText = member.isAlive ? `b. ${member.birth}` : `${member.birth} - ${member.death}`;
             const dotClass = member.isAlive ? 'dot-alive' : 'dot-deceased';
+            // Evento onclick inyectado dinámicamente para disparar la edición
             return `
-                <div class="member-card" id="card_${member.id}">
+                <div class="member-card" onclick="editMember('${member.id}')" title="Haz clic para editar">
                     <img src="${member.photo}" class="member-photo">
-                    <div class="member-name" title="${member.name}">${member.name}</div>
+                    <div class="member-name">${member.name}</div>
                     <div class="member-dates">
                         <span class="status-dot ${dotClass}"></span>${dateText}
                     </div>
@@ -437,7 +467,6 @@
             let html = '<ul>';
             children.forEach(child => {
                 renderedIds.add(child.id);
-                
                 html += '<li><div class="node-group">';
                 html += getCardHTML(child);
 
@@ -466,7 +495,6 @@
             }
 
             let renderedIds = new Set();
-            // Identificar los nodos raíces verdaderos (no tienen parentId y no son cónyuges subordinados en el render)
             const rootNodes = familyData.filter(m => m.parentId === null && !m.spouseId);
             
             if(rootNodes.length === 0 && familyData.length > 0) {
