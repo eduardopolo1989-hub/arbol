@@ -77,7 +77,7 @@
     <div class="container">
         <section class="form-section">
             <div id="crudBlock">
-                <h2 id="formTitle">1. Registrar Familiar</h2>
+                <h2>1. Registrar Familiar</h2>
                 <form id="treeForm">
                     <input type="hidden" id="editingMemberId" value="">
                     <div class="form-group">
@@ -100,6 +100,10 @@
                         <label for="deathYear">Año de Fallecimiento:</label>
                         <input type="number" id="deathYear" min="1700" max="2026">
                     </div>
+                    <div class="form-group">
+                        <label for="photo">Foto del Familiar:</label>
+                        <input type="file" id="photo" accept="image/*">
+                    </div>
                     <button type="submit" class="btn-submit" id="btnSubmit">Guardar Persona</button>
                     <button type="button" class="btn-cancel hidden" id="btnCancel" onclick="resetForm()">Cancelar</button>
                 </form>
@@ -108,19 +112,19 @@
             <div id="linkBlock" style="margin-top: 20px; padding-top: 15px; border-top: 2px solid var(--action-color);">
                 <h2 style="color: var(--action-color);">2. Conectar Parentescos</h2>
                 <div class="form-group">
-                    <label for="sourceSelect">Persona ORIGEN:</label>
+                    <label for="sourceSelect" style="color: var(--action-color);">Selecciona a alguien:</label>
                     <select id="sourceSelect" onchange="updateLinkSelectors()"></select>
                 </div>
                 <div class="form-group">
-                    <label for="advancedRelationshipType">Vínculo:</label>
+                    <label for="advancedRelationshipType">¿Qué vínculo vas a registrar?</label>
                     <select id="advancedRelationshipType">
-                        <option value="es_padre">Es HIJO/A de (El destino irá ARRIBA)</option>
-                        <option value="es_esposo">Es ESPOSO/A de (El destino irá AL LADO)</option>
-                        <option value="es_hijo">Es PADRE/MADRE de (El destino irá ABAJO)</option>
+                        <option value="es_padre">Es HIJO/A de... (El destino irá ARRIBA)</option>
+                        <option value="es_esposo">Es ESPOSO/A de... (El destino irá AL LADO)</option>
+                        <option value="es_hijo">Es PADRE/MADRE de... (El destino irá ABAJO)</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="targetSelect">Persona DESTINO:</label>
+                    <label for="targetSelect">¿Con qué pariente se asocia?</label>
                     <select id="targetSelect"></select>
                 </div>
                 <button type="button" onclick="executeAdvancedLink()" style="background-color: var(--action-color);">Establecer este Vínculo</button>
@@ -128,7 +132,7 @@
         </section>
 
         <section class="canvas-section" id="canvasContainer">
-            <canvas id="treeCanvas" width="2000" height="2000"></canvas>
+            <canvas id="treeCanvas" width="2200" height="2200"></canvas>
         </section>
     </div>
 
@@ -136,6 +140,10 @@
         let familyData = [];
         const canvas = document.getElementById('treeCanvas');
         const ctx = canvas.getContext('2d');
+        
+        // Imagen por defecto cargada en memoria limpia
+        const defaultImg = new Image();
+        defaultImg.src = 'https://cdn-icons-png.flaticon.com/512/847/847969.png';
 
         function toggleDeathField() {
             const isAlive = document.getElementById('isAlive').checked;
@@ -205,6 +213,7 @@
             const birthYear = document.getElementById('birthYear').value;
             const isAlive = document.getElementById('isAlive').checked;
             const deathYear = document.getElementById('deathYear').value;
+            const photoInput = document.getElementById('photo');
 
             const newMember = {
                 id: 'mem_' + Date.now(),
@@ -212,30 +221,48 @@
                 birth: birthYear,
                 isAlive: isAlive,
                 death: isAlive ? null : deathYear,
-                parents: [], // Soporta N cantidad de padres sin heredar relaciones raras
+                parents: [],
                 spouseId: null,
                 x: 0,
                 y: 0,
-                level: 0
+                level: 0,
+                imgObj: defaultImg 
             };
 
-            familyData.push(newMember);
+            if (photoInput.files && photoInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const customImg = new Image();
+                    customImg.src = event.target.result;
+                    customImg.onload = function() {
+                        newMember.imgObj = customImg;
+                        familyData.push(newMember);
+                        finalizeRender();
+                    };
+                };
+                reader.readAsDataURL(photoInput.files[0]);
+            } else {
+                familyData.push(newMember);
+                finalizeRender();
+            }
+        });
+
+        function finalizeRender() {
             resetForm();
             refreshSelectors();
             calculatePositions();
             drawTree();
-        });
+        }
 
         function resetForm() {
             document.getElementById('treeForm').reset();
             toggleDeathField();
         }
 
-        // ALGORITMO MATEMÁTICO DE COORDENADAS COHESIVAS
+        // ALGORITMO ORTOGONAL DE COORDENADAS COHESIVAS
         function calculatePositions() {
             if (familyData.length === 0) return;
 
-            // 1. Asignación de niveles verticales estricta (Eje Y)
             let cambiado = true;
             familyData.forEach(m => m.level = 0);
 
@@ -252,17 +279,16 @@
                 });
             }
 
-            // 2. Distribución en el espacio horizontal (Eje X) libre de colisiones
             const levelCounter = {};
-            const cardWidth = 180;
-            const cardGap = 60;
-            const levelHeight = 160;
-            const startY = 100;
+            const cardWidth = 220; 
+            const cardGap = 40;   
+            const levelHeight = 180;
+            const startY = 80;
 
             familyData.forEach(m => {
                 if (levelCounter[m.level] === undefined) levelCounter[m.level] = 0;
 
-                // Si tiene cónyuge y el cónyuge ya se posicionó, se coloca inmediatamente al lado derecho
+                // Si tiene pareja, se fuerza a dibujarlo inmediatamente al lado derecho
                 if (m.spouseId) {
                     const spouse = familyData.find(s => s.id === m.spouseId);
                     if (spouse && spouse.x !== 0 && spouse.level === m.level) {
@@ -272,37 +298,37 @@
                     }
                 }
 
-                m.x = 200 + (levelCounter[m.level] * (cardWidth + cardGap * 2));
+                m.x = 150 + (levelCounter[m.level] * (cardWidth + cardGap * 2));
                 m.y = startY + (m.level * levelHeight);
                 
-                levelCounter[m.level] += (m.spouseId) ? 1.5 : 1;
+                levelCounter[m.level] += (m.spouseId) ? 1.6 : 1;
             });
         }
 
-        // MOTOR GRÁFICO CANVAS
+        // MOTOR GRÁFICO RECALIBRADO (MÉTODO EN L Y FOTOS RECTIFICADAS)
         function drawTree() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (familyData.length === 0) return;
 
-            const cardW = 180;
-            const cardH = 80;
+            const cardW = 220;
+            const cardH = 90;
 
-            // PASO 1: Dibujar las conexiones físicas (Líneas de parentesco)
+            // PASO 1: Dibujar las conexiones limpias (En escuadra u ortogonales)
             familyData.forEach(m => {
-                // Línea roja discontinua horizontal para Cónyuges
+                // Parejas: Línea directa corta horizontal
                 if (m.spouseId) {
                     const spouse = familyData.find(s => s.id === m.spouseId);
-                    if (spouse) {
+                    if (spouse && m.id < spouse.id) { // Evita pintar la línea doble vez
                         ctx.beginPath();
                         ctx.strokeStyle = "#e02424";
-                        ctx.lineWidth = 2;
-                        ctx.setLineDash([5, 5]);
+                        ctx.lineWidth = 2.5;
+                        ctx.setLineDash([4, 4]);
                         ctx.moveTo(m.x + cardW, m.y + cardH / 2);
                         ctx.lineTo(spouse.x, spouse.y + cardH / 2);
                         ctx.stroke();
                         ctx.setLineDash([]);
                         
-                        // Etiqueta intermedia
+                        // Etiqueta Matrimonio
                         ctx.fillStyle = "#ffebee";
                         ctx.fillRect((m.x + cardW + spouse.x)/2 - 25, m.y + cardH/2 - 10, 50, 20);
                         ctx.fillStyle = "#e02424";
@@ -312,68 +338,80 @@
                     }
                 }
 
-                // Líneas grises verticales para Padres estrictos
-                m.parents.forEach(pId => {
-                    const parent = familyData.find(p => p.id === pId);
-                    if (parent) {
-                        ctx.beginPath();
-                        ctx.strokeStyle = "#94a3b8";
-                        ctx.lineWidth = 2;
-                        // Línea desde la base del padre hasta la cabeza del hijo en formato angular
-                        ctx.moveTo(parent.x + cardW / 2, parent.y + cardH);
-                        ctx.lineTo(parent.x + cardW / 2, parent.y + cardH + 20);
-                        ctx.lineTo(m.x + cardW / 2, m.y - 20);
-                        ctx.lineTo(m.x + cardW / 2, m.y);
-                        ctx.stroke();
+                // Hijos: Línea ortogonal limpia hacia arriba
+                if (m.parents && m.parents.length > 0) {
+                    m.parents.forEach(pId => {
+                        const parent = familyData.find(p => p.id === pId);
+                        if (parent) {
+                            ctx.beginPath();
+                            ctx.strokeStyle = "#94a3b8";
+                            ctx.lineWidth = 2;
 
-                        // Etiqueta de descendencia
-                        ctx.fillStyle = "#64748b";
-                        ctx.font = "italic 9px sans-serif";
-                        ctx.textAlign = "center";
-                        ctx.fillText("Padre/Madre de", parent.x + cardW / 2, parent.y + cardH + 15);
-                    }
-                });
+                            let startX = parent.x + cardW / 2;
+                            let startY = parent.y + cardH;
+                            let endX = m.x + cardW / 2;
+                            let endY = m.y;
+                            let midY = startY + (endY - startY) / 2; // Nodo central quiebre
+
+                            // Trayecto cuadrado en L para que no se pierdan las uniones
+                            ctx.moveTo(startX, startY);
+                            ctx.lineTo(startX, midY);
+                            ctx.lineTo(endX, midY);
+                            ctx.lineTo(endX, endY);
+                            ctx.stroke();
+                        }
+                    });
+                }
             });
 
-            // PASO 2: Renderizar las tarjetas encima de las líneas
+            // PASO 2: Pintar tarjetas y retratos
             familyData.forEach(m => {
-                // Caja principal
                 ctx.fillStyle = "#ffffff";
-                ctx.shadowColor = "rgba(0,0,0,0.1)";
-                ctx.shadowBlur = 6;
-                ctx.shadowOffsetX = 0;
-                ctx.shadowOffsetY = 3;
-                
-                // Bordes diferenciados por estado
+                ctx.shadowColor = "rgba(148, 163, 184, 0.15)";
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetY = 4;
                 ctx.strokeStyle = m.isAlive ? "#3498db" : "#94a3b8";
                 ctx.lineWidth = 2;
                 
                 ctx.beginPath();
-                ctx.roundRect(m.x, m.y, cardW, cardH, 8);
+                ctx.roundRect(m.x, m.y, cardW, cardH, 10);
                 ctx.fill();
                 ctx.stroke();
                 
-                // Reset de sombras para el texto
-                ctx.shadowBlur = 0;
-                ctx.shadowOffsetX = 0;
+                ctx.shadowBlur = 0; 
                 ctx.shadowOffsetY = 0;
 
-                // Texto: Nombre completo
-                ctx.fillStyle = "#2c3e50";
-                ctx.font = "bold 13px sans-serif";
-                ctx.textAlign = "left";
-                ctx.fillText(m.name, m.x + 15, m.y + 30, cardW - 30);
+                // Dibujar foto del familiar recortada circularmente
+                ctx.save();
+                ctx.beginPath();
+                let radius = 25;
+                let avatarX = m.x + 15 + radius;
+                let avatarY = m.y + (cardH / 2);
+                ctx.arc(avatarX, avatarY, radius, 0, Math.PI * 2);
+                ctx.clip();
+                
+                try {
+                    ctx.drawImage(m.imgObj, m.x + 15, m.y + (cardH / 2) - radius, radius * 2, radius * 2);
+                } catch (e) {
+                    ctx.drawImage(defaultImg, m.x + 15, m.y + (cardH / 2) - radius, radius * 2, radius * 2);
+                }
+                ctx.restore();
 
-                // Texto: Fechas
+                // Textos
+                ctx.fillStyle = "#2c3e50";
+                ctx.font = "bold 12px sans-serif";
+                ctx.textAlign = "left";
+                ctx.fillText(m.name, m.x + 80, m.y + 35, cardW - 90);
+
                 ctx.fillStyle = "#64748b";
                 ctx.font = "11px sans-serif";
                 const dateText = m.isAlive ? `Nac: ${m.birth}` : `${m.birth} - ${m.death}`;
-                ctx.fillText(dateText, m.x + 15, m.y + 52);
+                ctx.fillText(dateText, m.x + 80, m.y + 55);
 
-                // Punto de estado (Vivo/Fallecido)
+                // Estado
                 ctx.beginPath();
                 ctx.fillStyle = m.isAlive ? "#27ae60" : "#7f8c8d";
-                ctx.arc(m.x + cardW - 20, m.y + 50, 5, 0, Math.PI * 2);
+                ctx.arc(m.x + cardW - 15, m.y + 15, 4, 0, Math.PI * 2);
                 ctx.fill();
             });
         }
