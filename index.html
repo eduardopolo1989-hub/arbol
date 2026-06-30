@@ -74,22 +74,22 @@
             justify-content: center;
         }
 
-        /* Estructura Jerárquica */
+        /* Estructura Jerárquica CSS Líneas */
         .tree, .tree ul, .tree li { list-style-type: none; margin: 0; padding: 0; position: relative; }
-        .tree { display: flex; justify-content: center; }
-        .tree ul { display: flex; justify-content: center; position: relative; padding-top: 20px; }
-        .tree li { text-align: center; position: relative; padding: 20px 10px 0 10px; }
+        .tree { display: flex; justify-content: center; align-items: flex-start; }
+        .tree ul { display: flex; justify-content: center; position: relative; padding-top: 30px; }
+        .tree li { text-align: center; position: relative; padding: 30px 15px 0 15px; }
 
-        .tree li::before, .tree li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid var(--line-color); width: 50%; height: 20px; }
+        .tree li::before, .tree li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid var(--line-color); width: 50%; height: 30px; }
         .tree li::after { right: auto; left: 50%; border-left: 2px solid var(--line-color); }
         .tree li:only-child::after, .tree li:only-child::before { display: none; }
         .tree li:only-child { padding-top: 0; }
         .tree li:first-child::before, .tree li:last-child::after { border: 0 none; }
         .tree li:last-child::before { border-right: 2px solid var(--line-color); border-radius: 0 5px 0 0; }
         .tree li:first-child::after { border-radius: 5px 0 0 0; }
-        .tree ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid var(--line-color); width: 0; height: 20px; }
+        .tree ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid var(--line-color); width: 0; height: 30px; }
 
-        .node-group { display: inline-flex; align-items: flex-start; gap: 15px; position: relative; }
+        .node-group { display: inline-flex; align-items: flex-start; gap: 40px; position: relative; }
 
         /* Tarjetas de Miembros */
         .member-card {
@@ -105,16 +105,37 @@
         }
 
         .member-photo { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; margin: 0 auto 6px; display: block; border: 2px solid var(--secondary-color); }
-        .member-name { font-weight: bold; font-size: 0.85rem; margin-bottom: 2px; }
+        .member-name { font-weight: bold; font-size: 0.85rem; margin-bottom: 2px; text-transform: capitalize; }
         .member-dates { font-size: 0.7rem; color: #64748b; margin-bottom: 6px; }
+        .member-role { font-size: 0.7rem; font-weight: bold; color: var(--action-color); margin-bottom: 4px; text-transform: uppercase; }
         
-        /* Pequeños botones de acción en las tarjetas */
         .card-actions { display: flex; gap: 4px; justify-content: center; }
         .btn-card { padding: 3px 6px; font-size: 0.65rem; border-radius: 4px; width: auto; font-weight: normal; }
         .btn-card-edit { background-color: #cbd5e1; color: #334155; }
         .btn-card-link { background-color: var(--action-color); color: white; }
 
-        .spouse-connection { position: absolute; top: 38px; left: 155px; width: 25px; border-top: 2px dashed var(--spouse-color); z-index: 1; }
+        /* Conexión de Cónyuges en H */
+        .spouse-connection { 
+            position: absolute; 
+            top: 45px; 
+            left: 172px; 
+            width: 40px; 
+            border-top: 2px dashed var(--spouse-color); 
+            z-index: 1; 
+        }
+        .spouse-label {
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.6rem;
+            background: #ffebee;
+            color: var(--spouse-color);
+            padding: 1px 4px;
+            border-radius: 4px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -156,22 +177,23 @@
 
             <div id="linkBlock" class="hidden" style="margin-top: 20px; padding-top: 15px; border-top: 2px solid var(--action-color);">
                 <h2 style="color: var(--action-color); border-bottom-color: var(--action-color);">Interconectar Relación</h2>
-                <p style="font-size: 0.8rem; color: #64748b;">Establece múltiples lazos para: <strong id="linkingMemberName"></strong></p>
+                <p style="font-size: 0.8rem; color: #64748b;">Establecer un lazo para: <strong id="linkingMemberName"></strong></p>
                 
                 <div class="form-group">
-                    <label for="targetRelativeSelect">Unir o relacionar con:</label>
+                    <label for="targetRelativeSelect">Familiar Destino:</label>
                     <select id="targetRelativeSelect"></select>
                 </div>
                 <div class="form-group">
-                    <label for="advancedRelationshipType">¿Qué rol cumple el miembro seleccionado?</label>
+                    <label for="advancedRelationshipType">¿Qué parentesco tiene el destino con el seleccionado?</label>
                     <select id="advancedRelationshipType">
-                        <option value="es_padre">Es su Padre / Madre (Va arriba)</option>
-                        <option value="es_esposo">Es su Esposo / Esposa (Al lado)</option>
-                        <option value="es_hijo">Es su Hijo / Hija (Va abajo)</option>
+                        <option value="es_padre">Es su PADRE (Va arriba)</option>
+                        <option value="es_madre">Es su MADRE (Va arriba)</option>
+                        <option value="es_esposo">Es su ESPOSO/A (Al lado)</option>
+                        <option value="es_hijo">Es su HIJO/A (Va abajo)</option>
                     </select>
                 </div>
-                <button type="button" onclick="executeAdvancedLink()" style="background-color: var(--action-color);">Establecer Este Vínculo</button>
-                <button type="button" class="btn-cancel" onclick="closeLinkBlock()" style="margin-top: 8px;">Cerrar Vinculador</button>
+                <button type="button" onclick="executeAdvancedLink()" style="background-color: var(--action-color);">Establecer Vínculo</button>
+                <button type="button" class="btn-cancel" onclick="closeLinkBlock()" style="margin-top: 8px;">Cancelar Vínculo</button>
             </div>
         </section>
 
@@ -183,6 +205,7 @@
     </div>
 
     <script>
+        // Estructura multidireccional limpia
         let familyData = [];
         let activeLinkSourceId = null;
 
@@ -199,7 +222,6 @@
             document.getElementById('linkBlock').classList.remove('hidden');
             document.getElementById('linkingMemberName').textContent = member.name;
             
-            // Llenar selectores excluyéndose a sí mismo
             const select = document.getElementById('targetRelativeSelect');
             select.innerHTML = '';
             familyData.forEach(m => {
@@ -222,21 +244,21 @@
             const targetId = document.getElementById('targetRelativeSelect').value;
             const role = document.getElementById('advancedRelationshipType').value;
             
-            const sourceMember = familyData.find(m => m.id === activeLinkSourceId);
-            const targetMember = familyData.find(m => m.id === targetId);
+            const source = familyData.find(m => m.id === activeLinkSourceId);
+            const target = familyData.find(m => m.id === targetId);
 
-            if (!sourceMember || !targetMember) return;
+            if (!source || !target) return;
 
+            // Soporte nativo para múltiples padres y lazos dinámicos
             if (role === 'es_padre') {
-                // targetMember es el papá de sourceMember
-                sourceMember.parentId = targetMember.id;
+                source.fatherId = target.id;
+            } else if (role === 'es_madre') {
+                source.motherId = target.id;
             } else if (role === 'es_hijo') {
-                // targetMember es el hijo de sourceMember
-                targetMember.parentId = sourceMember.id;
+                target.fatherId = source.id; // Asignación por defecto hacia arriba
             } else if (role === 'es_esposo') {
-                // Relación simétrica e independiente de los padres
-                sourceMember.spouseId = targetMember.id;
-                targetMember.spouseId = sourceMember.id;
+                source.spouseId = target.id;
+                target.spouseId = source.id;
             }
 
             renderTreeGraph();
@@ -293,7 +315,8 @@
                     birth: birthYear,
                     isAlive: isAlive,
                     death: isAlive ? null : deathYear,
-                    parentId: null,
+                    fatherId: null,
+                    motherId: null,
                     spouseId: null,
                     photo: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
                 };
@@ -315,14 +338,15 @@
             }
         });
 
-        function getCardHTML(member) {
-            const dateText = member.isAlive ? `b. ${member.birth}` : `${member.birth} - ${member.death}`;
-            const dotClass = member.isAlive ? 'dot-alive' : 'dot-deceased';
+        function getCardHTML(member, roleLabel = '') {
+            const dateText = member.isAlive ? `nac. ${member.birth}` : `${member.birth} - ${member.death}`;
+            const labelHTML = roleLabel ? `<div class="member-role">${roleLabel}</div>` : '';
             return `
                 <div class="member-card">
+                    ${labelHTML}
                     <img src="${member.photo}" class="member-photo">
                     <div class="member-name">${member.name}</div>
-                    <div class="member-dates"><span class="status-dot ${dotClass}"></span>${dateText}</div>
+                    <div class="member-dates">${dateText}</div>
                     <div class="card-actions">
                         <button class="btn-card btn-card-edit" onclick="editMember('${member.id}')">✏️</button>
                         <button class="btn-card btn-card-link" onclick="openLinkMode('${member.id}')">🔗 Vincular</button>
@@ -331,15 +355,22 @@
             `;
         }
 
-        function buildTreeHTML(parentId, renderedIds) {
-            // Hijos directos de este nodo o de su cónyuge
-            const children = familyData.filter(m => m.parentId === parentId && !renderedIds.has(m.id));
-            const parentNode = familyData.find(m => m.id === parentId);
-            
-            if (parentNode && parentNode.spouseId) {
-                const spouseChildren = familyData.filter(m => m.parentId === parentNode.spouseId && !renderedIds.has(m.id));
+        // Motor recursivo avanzado de mapeo de descendencia bilateral
+        function buildTreeHTML(parentMember, renderedIds) {
+            if (!parentMember) return '';
+
+            // Conseguir los hijos que tengan a este miembro como padre O como madre
+            const children = familyData.filter(m => 
+                (m.fatherId === parentMember.id || m.motherId === parentMember.id) && !renderedIds.has(m.id)
+            );
+
+            // Si el miembro principal tiene cónyuge, también sumamos los hijos de este para no duplicar ramas
+            if (parentMember.spouseId) {
+                const spouseChildren = familyData.filter(m => 
+                    (m.fatherId === parentMember.spouseId || m.motherId === parentMember.spouseId) && !renderedIds.has(m.id)
+                );
                 spouseChildren.forEach(c => {
-                    if(!children.some(e => e.id === c.id)) children.push(c);
+                    if (!children.some(e => e.id === c.id)) children.push(c);
                 });
             }
 
@@ -351,19 +382,21 @@
                 renderedIds.add(child.id);
 
                 html += '<li><div class="node-group">';
-                html += getCardHTML(child);
+                html += getCardHTML(child, "Hijo/a");
 
+                // Renderizado horizontal simétrico si posee cónyuge
                 if (child.spouseId) {
                     const spouse = familyData.find(m => m.id === child.spouseId);
                     if (spouse && !renderedIds.has(spouse.id)) {
                         renderedIds.add(spouse.id);
-                        html += `<div class="spouse-connection"></div>`;
-                        html += getCardHTML(spouse);
+                        html += `<div class="spouse-connection"><span class="spouse-label">Esposos</span></div>`;
+                        html += getCardHTML(spouse, "Cónyuge");
                     }
                 }
-                
+
                 html += '</div>';
-                html += buildTreeHTML(child.id, renderedIds);
+                // Llamado recursivo descendiente
+                html += buildTreeHTML(child, renderedIds);
                 html += '</li>';
             });
             html += '</ul>';
@@ -378,10 +411,12 @@
             }
 
             let renderedIds = new Set();
-            // Las raíces principales del sistema son aquellas que no tienen ningún padre asignado arriba
-            const rootNodes = familyData.filter(m => m.parentId === null);
+            
+            // Los nodos raíz son aquellos cuyos padres no se encuentran registrados arriba en la app
+            const rootNodes = familyData.filter(m => m.fatherId === null && m.motherId === null);
 
             let finalHTML = '';
+
             rootNodes.forEach(root => {
                 if (renderedIds.has(root.id)) return;
                 if (root.spouseId && renderedIds.has(root.spouseId)) return;
@@ -389,26 +424,27 @@
                 renderedIds.add(root.id);
 
                 finalHTML += '<ul><li><div class="node-group">';
-                finalHTML += getCardHTML(root);
+                finalHTML += getCardHTML(root, "Raíz / Tronco");
 
                 if (root.spouseId) {
                     const spouse = familyData.find(m => m.id === root.spouseId);
                     if (spouse && !renderedIds.has(spouse.id)) {
                         renderedIds.add(spouse.id);
-                        finalHTML += `<div class="spouse-connection"></div>`;
-                        finalHTML += getCardHTML(spouse);
+                        finalHTML += `<div class="spouse-connection"><span class="spouse-label">Esposos</span></div>`;
+                        finalHTML += getCardHTML(spouse, "Cónyuge");
                     }
                 }
 
                 finalHTML += '</div>';
-                finalHTML += buildTreeHTML(root.id, renderedIds);
-                if (root.spouseId) {
-                    finalHTML += buildTreeHTML(root.spouseId, renderedIds);
-                }
+                
+                // Construye hacia abajo basándose en las herencias tanto de la raíz como del cónyuge
+                let childrenHTML = buildTreeHTML(root, renderedIds);
+                finalHTML += childrenHTML;
+                
                 finalHTML += '</li></ul>';
             });
 
-            container.innerHTML = finalHTML || '<p id="emptyMessage">Error en la composición jerárquica.</p>';
+            container.innerHTML = finalHTML || '<p id="emptyMessage">Estructura jerárquica en proceso...</p>';
         }
     </script>
 </body>
