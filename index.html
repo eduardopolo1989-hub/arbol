@@ -16,7 +16,6 @@
             --action-color: #8e44ad;
             --edit-color: #e67e22;
             --export-color: #27ae60;
-            --delete-color: #ef4444;
         }
 
         body {
@@ -64,8 +63,6 @@
         .btn-submit:hover { background-color: #2980b9; }
         .btn-cancel { background-color: #94a3b8; }
         .btn-cancel:hover { background-color: #64748b; }
-        .btn-delete { background-color: var(--delete-color); margin-top: 8px; }
-        .btn-delete:hover { background-color: #dc2626; }
 
         .canvas-section {
             position: relative;
@@ -112,6 +109,7 @@
             cursor: pointer;
         }
 
+        /* Indicador de sincronización remota */
         .cloud-status {
             font-size: 0.8rem;
             font-weight: bold;
@@ -131,7 +129,7 @@
             <div id="syncStatus" class="cloud-status">Conectando con Google Sheets...</div>
 
             <div class="instructions">
-                Arrastra tarjetas para moverlas. <strong>Doble clic sobre una tarjeta</strong> para editarla o eliminarla.
+                Arrastra tarjetas para moverlas. <strong>Doble clic sobre una tarjeta</strong> para editarla.
             </div>
 
             <div id="crudBlock">
@@ -164,7 +162,6 @@
                     </div>
                     <button type="submit" class="btn-submit" id="btnSubmit">Guardar Persona</button>
                     <button type="button" class="btn-cancel hidden" id="btnCancel" onclick="resetForm()">Cancelar Edición</button>
-                    <button type="button" class="btn-delete hidden" id="btnDelete" onclick="deleteMember()">Eliminar Familiar</button>
                 </form>
             </div>
 
@@ -223,6 +220,7 @@
     </div>
 
     <script>
+        // URL de tu implementación real de Google Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyaQroG-d468UiedqyVoUMQulda5LlykZHKfUp9s-pVL_sVVgo9GhAOA25ftjvtvGX7/exec";
 
         let familyData = [];
@@ -281,6 +279,7 @@
         let offsetX = 0;
         let offsetY = 0;
 
+        // CARGAR DESDE LA NUBE
         async function loadFromGoogleSheets() {
             try {
                 const response = await fetch(WEB_APP_URL);
@@ -298,9 +297,11 @@
             }
         }
 
+        // GUARDAR AUTOMÁTICAMENTE EN LA NUBE
         async function saveToGoogleSheets() {
             updateSyncStatus("🔄 Guardando en Google Sheets...", "#fef3c7", "#d97706");
             
+            // Sanitizar fechas antes del envío para evitar corrupción horaria local
             const cleanedData = familyData.map(m => {
                 return {
                     ...m,
@@ -347,7 +348,6 @@
         function updateLinkSelectors() {
             const sourceSelect = document.getElementById('sourceSelect');
             const targetSelect = document.getElementById('targetSelect');
-            if(!sourceSelect || !targetSelect) return;
             const activeId = sourceSelect.value;
 
             targetSelect.innerHTML = '';
@@ -443,7 +443,7 @@
                     id: 'mem_' + Date.now(),
                     name: `${names} ${lastNames}`,
                     birth: birthDate,
-                    isAlive = isAlive,
+                    isAlive: isAlive,
                     death: isAlive ? null : deathDate,
                     parents: [],
                     spouseId: null,
@@ -473,37 +473,6 @@
             }
         });
 
-        // NUEVA FUNCIÓN PARA ELIMINAR REGISTROS LIMPIANDO VÍNCULOS
-        function deleteMember() {
-            const targetId = document.getElementById('editingMemberId').value;
-            if (!targetId) return;
-
-            const memberToDelete = familyData.find(m => m.id === targetId);
-            if (!memberToDelete) return;
-
-            const confirmacion = confirm(`¿Estás seguro de que deseas eliminar a ${memberToDelete.name} del árbol? Esta acción no se puede deshacer.`);
-            if (!confirmacion) return;
-
-            // 1. Desvincular de cónyuges
-            familyData.forEach(m => {
-                if (m.spouseId === targetId) m.spouseId = null;
-            });
-
-            // 2. Desvincular de listas de padres de los hijos
-            familyData.forEach(m => {
-                if (m.parents && m.parents.includes(targetId)) {
-                    m.parents = m.parents.filter(id => id !== targetId);
-                }
-            });
-
-            // 3. Filtrar el array global para quitar el registro
-            familyData = familyData.filter(m => m.id !== targetId);
-
-            // 4. Actualizar interfaz y mandar cambios a Google Sheets
-            finalizeRender();
-            saveToGoogleSheets();
-        }
-
         function finalizeRender() {
             resetForm();
             refreshSelectors();
@@ -518,10 +487,10 @@
             document.getElementById('btnSubmit').textContent = "Guardar Persona";
             document.getElementById('btnSubmit').style.backgroundColor = "";
             document.getElementById('btnCancel').classList.add('hidden');
-            document.getElementById('btnDelete').classList.add('hidden');
             toggleDeathField();
         }
 
+        // GESTIÓN DRAG AND DROP
         canvas.addEventListener('mousedown', function(e) {
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left + document.getElementById('canvasContainer').scrollLeft;
@@ -588,14 +557,14 @@
                     document.getElementById('btnSubmit').textContent = "Actualizar Datos";
                     document.getElementById('btnSubmit').style.backgroundColor = "var(--edit-color)";
                     document.getElementById('btnCancel').classList.remove('hidden');
-                    document.getElementById('btnDelete').classList.remove('hidden');
                     break;
                 }
             }
         });
 
+        // FORMATEADOR SANITIZADO DE FECHAS DE NACIMIENTO/FALLECIMIENTO
         function formatDateString(dateStr) {
-            if (!dateStr || dateStr === "null" || dateStr === "??/??/????") return "????";
+            if (!dateStr || dateStr === "null" || dateStr === "????") return "????";
             
             if (dateStr.includes(" ") && (dateStr.includes("GMT") || dateStr.includes("00:00"))) {
                 const d = new Date(dateStr);
@@ -796,6 +765,7 @@
 
         canvas.style.backgroundColor = currentTheme.bgCanvas;
         
+        // EJECUCIÓN INICIAL AUTOMÁTICA
         window.addEventListener("DOMContentLoaded", loadFromGoogleSheets);
     </script>
 </body>
