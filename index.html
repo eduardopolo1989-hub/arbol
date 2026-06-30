@@ -166,7 +166,7 @@
                     <label for="themeSelector">Seleccionar Diseño:</label>
                     <select id="themeSelector" onchange="changeTreeTheme()">
                         <option value="clasico">Clásico (Corporativo / Limpio)</option>
-                        <option value="elegante">Elegante (Premium / Oro & Oscuro)</option>
+                        <option value="elegante">Elegante (Premium / Apto Impresión)</option>
                         <option value="moderno">Moderno (Minimalista / Neón)</option>
                         <option value="estilizado">Estilizado (Vintage / Pastel)</option>
                         <option value="minimalista">Minimalista (Zen / Esencial)</option>
@@ -210,20 +210,20 @@
                 shadowColor: "rgba(0,0,0,0.05)"
             },
             elegante: {
-                bgCanvas: "#1a1a1a",
-                cardBg: "#2c2c2c",
-                cardBorderAlive: "#d4af37", 
-                cardBorderDead: "#aa9162",
-                textColorName: "#f3e5ab",
-                textColorDate: "#bfa37a",
-                fontName: "italic bold 12px Georgia, serif",
+                bgCanvas: "#fdfbf7", // Fondo marfil ultra suave (Ahorro de tinta)
+                cardBg: "#ffffff",   // Tarjeta blanca pura limpia
+                cardBorderAlive: "#c5a059", // Oro viejo heráldico
+                cardBorderDead: "#a39070",
+                textColorName: "#2c2416",   // Gris oscuro con matiz café premium
+                textColorDate: "#6e6557",
+                fontName: "italic bold 11.5px Georgia, serif",
                 fontDate: "10px Georgia, serif",
-                lineColor: "#d4af37",
+                lineColor: "#c5a059",
                 lineWidth: 1.5,
                 lineDash: [],
                 cardRadius: 4,
-                shadowBlur: 10,
-                shadowColor: "rgba(212, 175, 55, 0.2)"
+                shadowBlur: 2, // Sombra atenuada para evitar manchas de impresión
+                shadowColor: "rgba(197, 160, 89, 0.1)"
             },
             moderno: {
                 bgCanvas: "#0f172a",
@@ -260,17 +260,17 @@
             minimalista: {
                 bgCanvas: "#ffffff",
                 cardBg: "#f8fafc",
-                cardBorderAlive: "#f8fafc", // Sin bordes perceptibles
+                cardBorderAlive: "#f8fafc", 
                 cardBorderDead: "#f1f5f9",
                 textColorName: "#0f172a",
                 textColorDate: "#475569",
                 fontName: "500 11px system-ui, -apple-system, sans-serif",
                 fontDate: "10px system-ui, -apple-system, sans-serif",
                 lineColor: "#cbd5e1",
-                lineWidth: 1, // Línea ultra fina
+                lineWidth: 1, 
                 lineDash: [],
                 cardRadius: 6,
-                shadowBlur: 0, // Sin sombras
+                shadowBlur: 0, 
                 shadowColor: "transparent"
             }
         };
@@ -532,7 +532,7 @@
                     const spouse = familyData.find(s => s.id === m.spouseId);
                     if (spouse && m.id < spouse.id) {
                         ctx.beginPath();
-                        ctx.strokeStyle = currentTheme === themes.minimalista ? "#cbd5e1" : "#e02424"; 
+                        ctx.strokeStyle = currentTheme === themes.minimalista ? "#cbd5e1" : (currentTheme === themes.elegante ? "#a39070" : "#e02424"); 
                         ctx.lineWidth = currentTheme.lineWidth + 0.5;
                         ctx.setLineDash(currentTheme === themes.minimalista ? [] : [3, 3]);
                         ctx.moveTo(m.x + cardW, m.y + cardH / 2);
@@ -617,8 +617,8 @@
                 const dateText = m.isAlive ? `Nac: ${birthFormatted}` : `${birthFormatted} - ${deathFormatted}`;
                 ctx.fillText(dateText, m.x + 54, m.y + 45);
 
-                // Indicador de Vida (Oculto en minimalista para mantener la pureza del diseño)
-                if (currentTheme !== themes.minimalista) {
+                // Indicador de Vida (Oculto en minimalista y elegante para impresión pura)
+                if (currentTheme !== themes.minimalista && currentTheme !== themes.elegante) {
                     ctx.beginPath();
                     ctx.fillStyle = m.isAlive ? "#27ae60" : "#7f8c8d";
                     ctx.arc(m.x + cardW - 10, m.y + 10, 3, 0, Math.PI * 2);
