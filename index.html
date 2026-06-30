@@ -502,7 +502,7 @@
             ctx.restore();
         }
 
-        // MOTOR DE RENDERIZADO DEL ÁRBOL
+        // MOTOR DE RENDERIZADO
         function drawTree() {
             ctx.clearRect(0, 0, virtualWidth, virtualHeight);
             if (familyData.length === 0) return;
@@ -510,7 +510,7 @@
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
 
-            // 1. LÍNEAS DE VÍNCULO
+            // 1. LÍNEAS
             familyData.forEach(m => {
                 if (m.spouseId) {
                     const spouse = familyData.find(s => s.id === m.spouseId);
@@ -557,7 +557,7 @@
                 }
             });
 
-            // 2. RENDERIZAR TARJETAS DE PERSONAS
+            // 2. TARJETAS
             familyData.forEach(m => {
                 ctx.fillStyle = currentTheme.cardBg;
                 ctx.shadowColor = currentTheme.shadowColor;
@@ -612,7 +612,7 @@
             });
         }
 
-        // --- SISTEMA CORREGIDO Y CORRECCIÓN DE FONDO NEGRO EN EXPORTACIÓN ---
+        // --- SISTEMA DE EXPORTACIÓN FORMATEADO PARA IMPRENTA REAL ---
         function handleExport(selectElement) {
             const format = selectElement.value;
             if (!format) return;
@@ -623,7 +623,98 @@
                 return;
             }
 
+            // Guardar el tema que el usuario tenía activo originalmente
             const originalTheme = currentTheme;
 
-            // Forzar Estilo Elegante / Premium (Fondo Claro e Ink-saving ideal para imprenta)
+            // FORZAR EL ESTILO ELEGANTE PARA GARANTIZAR AHORRO DE TINTA Y ALTA RESOLUCIÓN EN IMPRESIÓN
             currentTheme = themes.elegante;
+            drawTree(); // Redibuja con el fondo marfil/blanco y marcos de oro viejo
+
+            // 1. Encontrar el encuadre perfecto de las tarjetas (Bounding Box)
+            let minX = virtualWidth, maxX = 0, minY = virtualHeight, maxY = 0;
+            familyData.forEach(m => {
+                if (m.x < minX) minX = m.x;
+                if (m.x + cardW > maxX) maxX = m.x + cardW;
+                if (m.y < minY) minY = m.y;
+                if (m.y + cardH > maxY) maxY = m.y + cardH;
+            });
+
+            // Márgenes de cortesía técnica para que no se corte al refilar el papel
+            const padding = 60; 
+            minX = Math.max(0, minX - padding);
+            minY = Math.max(0, minY - padding);
+            maxX = Math.min(virtualWidth, maxX + padding);
+            maxY = Math.min(virtualHeight, maxY + padding);
+
+            const cropWidth = maxX - minX;
+            const cropHeight = maxY - minY;
+
+            // 2. Clonar fragmento en un lienzo de exportación Ultra HD
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = cropWidth * ratio;
+            exportCanvas.height = cropHeight * ratio;
+            const exportCtx = exportCanvas.getContext('2d');
+
+            exportCtx.drawImage(
+                canvas, 
+                minX * ratio, minY * ratio, cropWidth * ratio, cropHeight * ratio, 
+                0, 0, cropWidth * ratio, cropHeight * ratio
+            );
+
+            // 3. Procesamiento físico del archivo según el formato
+            try {
+                if (format === 'png' || format === 'jpg') {
+                    const finalCanvas = document.createElement('canvas');
+                    finalCanvas.width = exportCanvas.width;
+                    finalCanvas.height = exportCanvas.height;
+                    const finalCtx = finalCanvas.getContext('2d');
+                    
+                    // Asegurar fondo marfil premium plano libre de transparencias para plotters
+                    finalCtx.fillStyle = themes.elegante.bgCanvas;
+                    finalCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+                    finalCtx.drawImage(exportCanvas, 0, 0);
+
+                    const link = document.createElement('a');
+                    link.download = `arbol_genealógico_premium.${format}`;
+                    link.href = finalCanvas.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', 0.98);
+                    link.click();
+                } 
+                else if (format === 'pdf') {
+                    const { jsPDF } = window.jspdf;
+                    
+                    // Cálculo de Conversión de Píxeles de Pantalla a Milímetros Físicos (Estándar Imprenta 300 DPI aprox.)
+                    const mmWidth = Math.round(cropWidth * 0.264583);
+                    const mmHeight = Math.round(cropHeight * 0.264583);
+                    
+                    const orientation = mmWidth > mmHeight ? 'l' : 'p';
+                    
+                    // Crear el PDF con medidas milimétricas exactas listas para impresión de cualquier escala
+                    const pdf = new jsPDF({
+                        orientation: orientation,
+                        unit: 'mm',
+                        format: [mmWidth, mmHeight]
+                    });
+
+                    const imgData = exportCanvas.toDataURL('image/jpeg', 1.0);
+                    
+                    // Inserción en escala exacta 1:1 milimétrica sin compresión disruptiva
+                    pdf.addImage(imgData, 'JPEG', 0, 0, mmWidth, mmHeight);
+                    pdf.save('arbol_genealogico_impresion.pdf');
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Ocurrió un inconveniente al generar la estructura del documento de impresión.");
+            }
+
+            // RESTAURAR EL ESTILO VISUAL DE LA PANTALLA que tenía el usuario al inicio
+            currentTheme = originalTheme;
+            drawTree();
+
+            // Limpiar selector
+            selectElement.value = "";
+        }
+
+        canvas.style.backgroundColor = currentTheme.bgCanvas;
+    </script>
+</body>
+</html>
