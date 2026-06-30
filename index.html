@@ -169,6 +169,7 @@
                         <option value="elegante">Elegante (Premium / Oro & Oscuro)</option>
                         <option value="moderno">Moderno (Minimalista / Neón)</option>
                         <option value="estilizado">Estilizado (Vintage / Pastel)</option>
+                        <option value="minimalista">Minimalista (Zen / Esencial)</option>
                     </select>
                 </div>
             </div>
@@ -211,7 +212,7 @@
             elegante: {
                 bgCanvas: "#1a1a1a",
                 cardBg: "#2c2c2c",
-                cardBorderAlive: "#d4af37", // Oro
+                cardBorderAlive: "#d4af37", 
                 cardBorderDead: "#aa9162",
                 textColorName: "#f3e5ab",
                 textColorDate: "#bfa37a",
@@ -227,7 +228,7 @@
             moderno: {
                 bgCanvas: "#0f172a",
                 cardBg: "#1e293b",
-                cardBorderAlive: "#00f5d4", // Neón Menta
+                cardBorderAlive: "#00f5d4", 
                 cardBorderDead: "#475569",
                 textColorName: "#ffffff",
                 textColorDate: "#94a3b8",
@@ -236,14 +237,14 @@
                 lineColor: "#00f5d4",
                 lineWidth: 2,
                 lineDash: [4, 4],
-                cardRadius: 0, // Recto total
+                cardRadius: 0, 
                 shadowBlur: 6,
                 shadowColor: "rgba(0, 245, 212, 0.15)"
             },
             estilizado: {
                 bgCanvas: "#f4f1ea",
                 cardBg: "#fffdf9",
-                cardBorderAlive: "#9b59b6", // Amatista
+                cardBorderAlive: "#9b59b6", 
                 cardBorderDead: "#bdc3c7",
                 textColorName: "#4a285d",
                 textColorDate: "#7f8c8d",
@@ -252,13 +253,29 @@
                 lineColor: "#9b59b6",
                 lineWidth: 2.5,
                 lineDash: [1, 2],
-                cardRadius: 16, // Súper redondeado
+                cardRadius: 16, 
                 shadowBlur: 5,
                 shadowColor: "rgba(155, 89, 181, 0.1)"
+            },
+            minimalista: {
+                bgCanvas: "#ffffff",
+                cardBg: "#f8fafc",
+                cardBorderAlive: "#f8fafc", // Sin bordes perceptibles
+                cardBorderDead: "#f1f5f9",
+                textColorName: "#0f172a",
+                textColorDate: "#475569",
+                fontName: "500 11px system-ui, -apple-system, sans-serif",
+                fontDate: "10px system-ui, -apple-system, sans-serif",
+                lineColor: "#cbd5e1",
+                lineWidth: 1, // Línea ultra fina
+                lineDash: [],
+                cardRadius: 6,
+                shadowBlur: 0, // Sin sombras
+                shadowColor: "transparent"
             }
         };
 
-        let currentTheme = themes.clasico; // Por defecto
+        let currentTheme = themes.clasico; 
 
         // --- SISTEMA DE CORRECCIÓN DE NITIDEZ EN PANTALLAS (RETINA/HD) ---
         const ratio = window.devicePixelRatio || 1;
@@ -515,9 +532,9 @@
                     const spouse = familyData.find(s => s.id === m.spouseId);
                     if (spouse && m.id < spouse.id) {
                         ctx.beginPath();
-                        ctx.strokeStyle = "#e02424"; // Se mantiene rojo para destacar matrimonio
+                        ctx.strokeStyle = currentTheme === themes.minimalista ? "#cbd5e1" : "#e02424"; 
                         ctx.lineWidth = currentTheme.lineWidth + 0.5;
-                        ctx.setLineDash([3, 3]);
+                        ctx.setLineDash(currentTheme === themes.minimalista ? [] : [3, 3]);
                         ctx.moveTo(m.x + cardW, m.y + cardH / 2);
                         ctx.lineTo(spouse.x, spouse.y + cardH / 2);
                         ctx.stroke();
@@ -564,14 +581,15 @@
                 ctx.shadowBlur = currentTheme.shadowBlur;
                 ctx.shadowOffsetY = currentTheme.shadowBlur > 0 ? 3 : 0;
                 ctx.strokeStyle = m.isAlive ? currentTheme.cardBorderAlive : currentTheme.cardBorderDead;
-                ctx.lineWidth = 1.8;
+                ctx.lineWidth = currentTheme === themes.minimalista ? 0.1 : 1.8;
                 
                 ctx.beginPath();
                 ctx.roundRect(m.x, m.y, cardW, cardH, currentTheme.cardRadius);
                 ctx.fill();
-                ctx.stroke();
+                if(currentTheme !== themes.minimalista || !m.isAlive) {
+                    ctx.stroke();
+                }
                 
-                // Desactivar sombras temporales para textos e imágenes
                 ctx.shadowBlur = 0; 
                 ctx.shadowOffsetY = 0;
 
@@ -589,7 +607,7 @@
                 const birthFormatted = formatDateString(m.birth);
                 const deathFormatted = formatDateString(m.death);
 
-                // Aplicación de Textos e hilos tipográficos del Tema
+                // Aplicación de Textos
                 ctx.fillStyle = currentTheme.textColorName;
                 ctx.font = currentTheme.fontName;
                 ctx.fillText(m.name, m.x + 54, m.y + 28, cardW - 65);
@@ -599,11 +617,13 @@
                 const dateText = m.isAlive ? `Nac: ${birthFormatted}` : `${birthFormatted} - ${deathFormatted}`;
                 ctx.fillText(dateText, m.x + 54, m.y + 45);
 
-                // Pequeño indicador de Vida Minimalista
-                ctx.beginPath();
-                ctx.fillStyle = m.isAlive ? "#27ae60" : "#7f8c8d";
-                ctx.arc(m.x + cardW - 10, m.y + 10, 3, 0, Math.PI * 2);
-                ctx.fill();
+                // Indicador de Vida (Oculto en minimalista para mantener la pureza del diseño)
+                if (currentTheme !== themes.minimalista) {
+                    ctx.beginPath();
+                    ctx.fillStyle = m.isAlive ? "#27ae60" : "#7f8c8d";
+                    ctx.arc(m.x + cardW - 10, m.y + 10, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             });
         }
 
