@@ -383,6 +383,14 @@
             }
         });
 
+        // FUNCIÓN AUXILIAR PARA PASAR FECHA 'AAAA-MM-DD' A 'DD/MM/AAAA'
+        function formatDateString(dateStr) {
+            if (!dateStr) return "????";
+            const parts = dateStr.split("-");
+            if (parts.length !== 3) return dateStr;
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+
         // MOTOR DE RENDERIZADO
         function drawTree() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -465,19 +473,19 @@
                 ctx.drawImage(m.imgObj, m.x + 12, m.y + (cardH / 2) - radius, radius * 2, radius * 2);
                 ctx.restore();
 
-                // Obtener solo el año de las strings de fecha (AAAA-MM-DD)
-                const birthYear = m.birth ? m.birth.split("-")[0] : "????";
-                const deathYear = m.death ? m.death.split("-")[0] : "????";
+                // Formatear Fechas Completas (DD/MM/AAAA)
+                const birthFormatted = formatDateString(m.birth);
+                const deathFormatted = formatDateString(m.death);
 
                 // Textos Ajustados de Alta Densidad
                 ctx.fillStyle = "#2c3e50";
                 ctx.font = "bold 11px sans-serif";
-                ctx.fillText(m.name, m.x + 56, m.y + 28, cardW - 65);
+                ctx.fillText(m.name, m.x + 54, m.y + 28, cardW - 65);
 
                 ctx.fillStyle = "#64748b";
                 ctx.font = "10px sans-serif";
-                const dateText = m.isAlive ? `Nac: ${birthYear}` : `${birthYear} - ${deathYear}`;
-                ctx.fillText(dateText, m.x + 56, m.y + 44);
+                const dateText = m.isAlive ? `Nac: ${birthFormatted}` : `${birthFormatted} - ${deathFormatted}`;
+                ctx.fillText(dateText, m.x + 54, m.y + 45);
 
                 // Indicador de vida minimalista
                 ctx.beginPath();
