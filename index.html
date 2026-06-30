@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Árbol Genealógico Interactivo (Drag & Drop)</title>
+    <title>Árbol Genealógico Interactivo de Alta Densidad</title>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -19,41 +19,42 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color);
             margin: 0;
-            padding: 20px;
+            padding: 15px;
             color: var(--primary-color);
             overflow: hidden;
         }
 
         .container {
             display: grid;
-            grid-template-columns: 360px 1fr;
-            gap: 20px;
-            height: 95vh;
+            grid-template-columns: 340px 1fr;
+            gap: 15px;
+            height: 96vh;
         }
 
         .form-section {
             background: var(--card-bg);
-            padding: 20px;
+            padding: 15px;
             border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.06);
             overflow-y: auto;
+            font-size: 0.9rem;
         }
 
         .form-section h2 {
             margin-top: 0;
-            font-size: 1.3rem;
+            font-size: 1.15rem;
             border-bottom: 2px solid var(--secondary-color);
-            padding-bottom: 8px;
+            padding-bottom: 6px;
         }
 
-        .form-group { margin-bottom: 12px; }
-        .form-group label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.85rem; }
-        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; margin-bottom: 3px; font-weight: 600; font-size: 0.8rem; }
+        .form-group input, .form-group select { width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem; }
         .checkbox-group { display: flex; align-items: center; gap: 8px; }
         .checkbox-group input { width: auto; }
         .hidden { display: none; }
 
-        button { width: 100%; padding: 10px; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button { width: 100%; padding: 8px; color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
         .btn-submit { background-color: var(--secondary-color); }
         .btn-submit:hover { background-color: #2980b9; }
 
@@ -61,8 +62,8 @@
             position: relative;
             background: #ffffff;
             border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+            overflow: auto; /* Scroll bidimensional para navegación infinita */
             cursor: grab;
         }
         .canvas-section:active { cursor: grabbing; }
@@ -79,7 +80,7 @@
             padding: 8px;
             border-radius: 6px;
             border-left: 3px solid var(--secondary-color);
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
     </style>
 </head>
@@ -88,7 +89,7 @@
     <div class="container">
         <section class="form-section">
             <div class="instructions">
-                💡 <strong>Tip de control:</strong> Registra tus familiares y relaciónalos. Si se enciman o quieres ordenarlos a tu gusto, simplemente <strong>haz clic sobre la tarjeta en el lienzo y arrástrala</strong> a donde quieras.
+                Ajusta la distribución arrastrando las tarjetas. Desplázate por el contenedor derecho si necesitas más espacio de dibujo.
             </div>
 
             <div id="crudBlock">
@@ -96,11 +97,11 @@
                 <form id="treeForm">
                     <div class="form-group">
                         <label for="names">Nombres:</label>
-                        <input type="text" id="names" required placeholder="Ej. Carlos">
+                        <input type="text" id="names" required placeholder="Nombres">
                     </div>
                     <div class="form-group">
                         <label for="lastNames">Apellidos:</label>
-                        <input type="text" id="lastNames" required placeholder="Ej. Polo">
+                        <input type="text" id="lastNames" required placeholder="Apellidos">
                     </div>
                     <div class="form-group">
                         <label for="birthYear">Año de Nacimiento:</label>
@@ -115,14 +116,14 @@
                         <input type="number" id="deathYear" min="1700" max="2026">
                     </div>
                     <div class="form-group">
-                        <label for="photo">Foto del Familiar:</label>
+                        <label for="photo">Foto (Opcional):</label>
                         <input type="file" id="photo" accept="image/*">
                     </div>
                     <button type="submit" class="btn-submit">Guardar Persona</button>
                 </form>
             </div>
 
-            <div id="linkBlock" style="margin-top: 20px; padding-top: 15px; border-top: 2px solid var(--action-color);">
+            <div id="linkBlock" style="margin-top: 15px; padding-top: 12px; border-top: 2px solid var(--action-color);">
                 <h2 style="color: var(--action-color);">2. Conectar Parentescos</h2>
                 <div class="form-group">
                     <label for="sourceSelect" style="color: var(--action-color);">Persona A:</label>
@@ -131,9 +132,9 @@
                 <div class="form-group">
                     <label for="advancedRelationshipType">Relación:</label>
                     <select id="advancedRelationshipType">
-                        <option value="es_esposo">Es ESPOSO/A de (Línea horizontal)</option>
-                        <option value="es_hijo">Es PADRE/MADRE de (Línea hacia abajo)</option>
-                        <option value="es_padre">Es HIJO/A de (Línea hacia arriba)</option>
+                        <option value="es_esposo">Es ESPOSO/A de</option>
+                        <option value="es_hijo">Es PADRE/MADRE de</option>
+                        <option value="es_padre">Es HIJO/A de</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -145,7 +146,7 @@
         </section>
 
         <section class="canvas-section" id="canvasContainer">
-            <canvas id="treeCanvas" width="2000" height="2000"></canvas>
+            <canvas id="treeCanvas" width="3000" height="3000"></canvas>
         </section>
     </div>
 
@@ -154,10 +155,10 @@
         const canvas = document.getElementById('treeCanvas');
         const ctx = canvas.getContext('2d');
         
-        const cardW = 220;
-        const cardH = 90;
+        // Dimensiones compactas optimizadas para alta densidad
+        const cardW = 180;
+        const cardH = 70;
 
-        // Variables para el control de arrastre (Drag and Drop)
         let selectedMember = null;
         let isDragging = false;
         let offsetX = 0;
@@ -229,9 +230,9 @@
             const deathYear = document.getElementById('deathYear').value;
             const photoInput = document.getElementById('photo');
 
-            // Posición inicial aleatoria controlada cerca del centro para evitar colisiones amontonadas
-            const spawnX = 400 + (familyData.length * 30) % 300;
-            const spawnY = 200 + (familyData.length * 40) % 200;
+            // Posicionamiento de entrada compacto
+            const spawnX = 300 + (familyData.length * 25) % 250;
+            const spawnY = 150 + (familyData.length * 30) % 150;
 
             const newMember = {
                 id: 'mem_' + Date.now(),
@@ -271,13 +272,12 @@
             drawTree();
         }
 
-        // --- SISTEMA MOUSE DRAG & DROP ---
+        // CONTROL DRAG & DROP
         canvas.addEventListener('mousedown', function(e) {
             const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
+            const mouseX = e.clientX - rect.left + document.getElementById('canvasContainer').scrollLeft;
+            const mouseY = e.clientY - rect.top + document.getElementById('canvasContainer').scrollTop;
 
-            // Recorrer al revés para seleccionar el que está más "arriba" visualmente
             for (let i = familyData.length - 1; i >= 0; i--) {
                 const m = familyData[i];
                 if (mouseX >= m.x && mouseX <= m.x + cardW && mouseY >= m.y && mouseY <= m.y + cardH) {
@@ -293,14 +293,13 @@
         canvas.addEventListener('mousemove', function(e) {
             if (!isDragging || !selectedMember) return;
             const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
+            const mouseX = e.clientX - rect.left + document.getElementById('canvasContainer').scrollLeft;
+            const mouseY = e.clientY - rect.top + document.getElementById('canvasContainer').scrollTop;
 
-            // Actualizar coordenadas en tiempo real
             selectedMember.x = mouseX - offsetX;
             selectedMember.y = mouseY - offsetY;
 
-            drawTree(); // Redibuja todo instantáneamente
+            drawTree();
         });
 
         window.addEventListener('mouseup', function() {
@@ -308,22 +307,20 @@
             selectedMember = null;
         });
 
-
-        // --- MOTOR GRÁFICO DINÁMICO ---
+        // MOTOR DE RENDERIZADO COMPACTO
         function drawTree() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (familyData.length === 0) return;
 
-            // 1. DIBUJAR LÍNEAS ESTRUCTURALES DINÁMICAS
+            // 1. DIBUJAR LÍNEAS
             familyData.forEach(m => {
-                // Parejas: Línea directa elástica
                 if (m.spouseId) {
                     const spouse = familyData.find(s => s.id === m.spouseId);
                     if (spouse && m.id < spouse.id) {
                         ctx.beginPath();
                         ctx.strokeStyle = "#e02424";
-                        ctx.lineWidth = 3;
-                        ctx.setLineDash([4, 4]);
+                        ctx.lineWidth = 2.5;
+                        ctx.setLineDash([3, 3]);
                         ctx.moveTo(m.x + cardW, m.y + cardH / 2);
                         ctx.lineTo(spouse.x, spouse.y + cardH / 2);
                         ctx.stroke();
@@ -331,35 +328,32 @@
                     }
                 }
 
-                // Hijos: Trazo ortogonal adaptativo según donde muevas las tarjetas
                 if (m.parents && m.parents.length > 0) {
                     if (m.parents.length >= 2) {
                         const p1 = familyData.find(p => p.id === m.parents[0]);
                         const p2 = familyData.find(p => p.id === m.parents[1]);
                         if (p1 && p2) {
-                            // Calcula dinámicamente el punto intermedio de la pareja
                             let midX = (p1.x + p2.x + cardW) / 2;
                             let midY = (p1.y + p2.y + cardH) / 2;
 
                             ctx.beginPath();
                             ctx.strokeStyle = "#94a3b8";
-                            ctx.lineWidth = 2.5;
+                            ctx.lineWidth = 2;
                             ctx.moveTo(midX, midY);
-                            ctx.lineTo(midX, m.y - 20);
-                            ctx.lineTo(m.x + cardW / 2, m.y - 20);
+                            ctx.lineTo(midX, m.y - 15);
+                            ctx.lineTo(m.x + cardW / 2, m.y - 15);
                             ctx.lineTo(m.x + cardW / 2, m.y);
                             ctx.stroke();
                         }
                     } else {
-                        // Un solo padre registrado
                         const parent = familyData.find(p => p.id === m.parents[0]);
                         if (parent) {
                             ctx.beginPath();
                             ctx.strokeStyle = "#94a3b8";
-                            ctx.lineWidth = 2.5;
+                            ctx.lineWidth = 2;
                             ctx.moveTo(parent.x + cardW / 2, parent.y + cardH);
-                            ctx.lineTo(parent.x + cardW / 2, m.y - 20);
-                            ctx.lineTo(m.x + cardW / 2, m.y - 20);
+                            ctx.lineTo(parent.x + cardW / 2, m.y - 15);
+                            ctx.lineTo(m.x + cardW / 2, m.y - 15);
                             ctx.lineTo(m.x + cardW / 2, m.y);
                             ctx.stroke();
                         }
@@ -367,48 +361,48 @@
                 }
             });
 
-            // 2. RENDERIZAR LAS TARJETAS EN SUS NUEVAS COORDENADAS
+            // 2. RENDERIZAR TARJETAS
             familyData.forEach(m => {
                 ctx.fillStyle = "#ffffff";
-                ctx.shadowColor = "rgba(0, 0, 0, 0.06)";
-                ctx.shadowBlur = 6;
-                ctx.shadowOffsetY = 3;
+                ctx.shadowColor = "rgba(0, 0, 0, 0.05)";
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetY = 2;
                 ctx.strokeStyle = m.isAlive ? "#3498db" : "#94a3b8";
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 1.5;
                 
                 ctx.beginPath();
-                ctx.roundRect(m.x, m.y, cardW, cardH, 10);
+                ctx.roundRect(m.x, m.y, cardW, cardH, 8);
                 ctx.fill();
                 ctx.stroke();
                 
                 ctx.shadowBlur = 0; 
                 ctx.shadowOffsetY = 0;
 
-                // Retrato Circular
+                // Mini Retrato Circular
                 ctx.save();
                 ctx.beginPath();
-                let radius = 25;
-                let avatarX = m.x + 15 + radius;
+                let radius = 18; // Más pequeño y balanceado
+                let avatarX = m.x + 12 + radius;
                 let avatarY = m.y + (cardH / 2);
                 ctx.arc(avatarX, avatarY, radius, 0, Math.PI * 2);
                 ctx.clip();
-                ctx.drawImage(m.imgObj, m.x + 15, m.y + (cardH / 2) - radius, radius * 2, radius * 2);
+                ctx.drawImage(m.imgObj, m.x + 12, m.y + (cardH / 2) - radius, radius * 2, radius * 2);
                 ctx.restore();
 
-                // Nombres y Fechas
+                // Textos Ajustados de Alta Densidad
                 ctx.fillStyle = "#2c3e50";
-                ctx.font = "bold 13px sans-serif";
-                ctx.fillText(m.name, m.x + 80, m.y + 38, cardW - 90);
+                ctx.font = "bold 11px sans-serif";
+                ctx.fillText(m.name, m.x + 56, m.y + 28, cardW - 65);
 
                 ctx.fillStyle = "#64748b";
-                ctx.font = "11px sans-serif";
+                ctx.font = "10px sans-serif";
                 const dateText = m.isAlive ? `Nac: ${m.birth}` : `${m.birth} - ${m.death}`;
-                ctx.fillText(dateText, m.x + 80, m.y + 58);
+                ctx.fillText(dateText, m.x + 56, m.y + 44);
 
-                // LED de Estado de Vida
+                // Indicador de vida minimalista
                 ctx.beginPath();
                 ctx.fillStyle = m.isAlive ? "#27ae60" : "#7f8c8d";
-                ctx.arc(m.x + cardW - 15, m.y + 15, 4, 0, Math.PI * 2);
+                ctx.arc(m.x + cardW - 10, m.y + 10, 3, 0, Math.PI * 2);
                 ctx.fill();
             });
         }
