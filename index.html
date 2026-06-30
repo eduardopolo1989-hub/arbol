@@ -304,7 +304,7 @@
         }
 
         async function saveToGoogleSheets() {
-            if (WEB_APP_URL.includes("AQUI_PEGA_TU_URL")) return;
+            if (WEB_APP_URL.includes("https://script.google.com/macros/s/AKfycbyaQroG-d468UiedqyVoUMQulda5LlykZHKfUp9s-pVL_sVVgo9GhAOA25ftjvtvGX7/exec")) return;
             updateSyncStatus("🔄 Subiendo cambios a la nube...", "#fef3c7", "#d97706");
             try {
                 const response = await fetch(WEB_APP_URL, {
