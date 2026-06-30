@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Árbol Genealógico Avanzado de Alta Densidad</title>
+    <title>Árbol Genealógico Avanzado - Ultra HD</title>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -152,7 +152,7 @@
         </section>
 
         <section class="canvas-section" id="canvasContainer">
-            <canvas id="treeCanvas" width="3000" height="3000"></canvas>
+            <canvas id="treeCanvas"></canvas>
         </section>
     </div>
 
@@ -161,8 +161,27 @@
         const canvas = document.getElementById('treeCanvas');
         const ctx = canvas.getContext('2d');
         
+        // Dimensiones lógicas de las tarjetas
         const cardW = 180;
         const cardH = 70;
+
+        // Dimensiones virtuales del Lienzo Completo
+        const virtualWidth = 3000;
+        const virtualHeight = 3000;
+
+        // --- SISTEMA DE CORRECCIÓN DE NITIDEZ EN PANTALLAS DE ALTA DENSIDAD (RETINA/HD) ---
+        const ratio = window.devicePixelRatio || 1;
+        
+        // 1. Definir el tamaño físico real en píxeles de pantalla
+        canvas.width = virtualWidth * ratio;
+        canvas.height = virtualHeight * ratio;
+        
+        // 2. Definir el tamaño visual que ocupará en la página usando CSS
+        canvas.style.width = virtualWidth + "px";
+        canvas.style.height = virtualHeight + "px";
+        
+        // 3. Escalar de forma permanente el contexto de dibujo para mantener la compatibilidad de coordenadas lógicas
+        ctx.scale(ratio, ratio);
 
         let selectedMember = null;
         let isDragging = false;
@@ -383,7 +402,6 @@
             }
         });
 
-        // FUNCIÓN AUXILIAR PARA PASAR FECHA 'AAAA-MM-DD' A 'DD/MM/AAAA'
         function formatDateString(dateStr) {
             if (!dateStr) return "????";
             const parts = dateStr.split("-");
@@ -391,10 +409,14 @@
             return `${parts[2]}/${parts[1]}/${parts[0]}`;
         }
 
-        // MOTOR DE RENDERIZADO
+        // MOTOR DE RENDERIZADO ULTRA HD
         function drawTree() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, virtualWidth, virtualHeight);
             if (familyData.length === 0) return;
+
+            // Activación de antialiasing de alta calidad de imagen en el buffer
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
 
             // 1. DIBUJAR LÍNEAS
             familyData.forEach(m => {
@@ -445,7 +467,7 @@
                 }
             });
 
-            // 2. RENDERIZAR TARJETAS
+            // 2. RENDERIZAR TARJETAS EN ALTA DENSIDAD
             familyData.forEach(m => {
                 ctx.fillStyle = "#ffffff";
                 ctx.shadowColor = "rgba(0, 0, 0, 0.05)";
@@ -462,7 +484,7 @@
                 ctx.shadowBlur = 0; 
                 ctx.shadowOffsetY = 0;
 
-                // Mini Retrato Circular
+                // Retrato Circular Nítido
                 ctx.save();
                 ctx.beginPath();
                 let radius = 18; 
@@ -473,11 +495,10 @@
                 ctx.drawImage(m.imgObj, m.x + 12, m.y + (cardH / 2) - radius, radius * 2, radius * 2);
                 ctx.restore();
 
-                // Formatear Fechas Completas (DD/MM/AAAA)
                 const birthFormatted = formatDateString(m.birth);
                 const deathFormatted = formatDateString(m.death);
 
-                // Textos Ajustados de Alta Densidad
+                // Textos Vectoriales Puros (Renderizados directamente a escala nativa)
                 ctx.fillStyle = "#2c3e50";
                 ctx.font = "bold 11px sans-serif";
                 ctx.fillText(m.name, m.x + 54, m.y + 28, cardW - 65);
@@ -487,7 +508,7 @@
                 const dateText = m.isAlive ? `Nac: ${birthFormatted}` : `${birthFormatted} - ${deathFormatted}`;
                 ctx.fillText(dateText, m.x + 54, m.y + 45);
 
-                // Indicador de vida minimalista
+                // Estado de Vida
                 ctx.beginPath();
                 ctx.fillStyle = m.isAlive ? "#27ae60" : "#7f8c8d";
                 ctx.arc(m.x + cardW - 10, m.y + 10, 3, 0, Math.PI * 2);
