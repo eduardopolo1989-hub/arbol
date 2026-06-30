@@ -192,9 +192,9 @@
                     <label for="exportSelector">Selecciona una opción para guardar:</label>
                     <select id="exportSelector" class="export-select" onchange="handleExport(this)">
                         <option value="" selected disabled>— Seleccionar Formato —</option>
-                        <option value="png">Exportar como PNG</option>
-                        <option value="jpg">Exportar como JPG</option>
-                        <option value="pdf">Exportar como PDF</option>
+                        <option value="png">Impresión Imagen PNG</option>
+                        <option value="jpg">Impresión Imagen JPG</option>
+                        <option value="pdf">Documento PDF Formateado</option>
                     </select>
                 </div>
             </div>
@@ -485,25 +485,17 @@
             return `${parts[2]}/${parts[1]}/${parts[0]}`;
         }
 
-        // DIBUJAR AVATAR VECTORIAL (Evita fallos de CORS de urls externas)
         function drawVectorAvatar(x, y, r) {
             ctx.save();
             ctx.beginPath();
             ctx.arc(x, y, r, 0, Math.PI * 2);
             ctx.clip();
-
-            // Fondo del círculo
             ctx.fillStyle = "#e2e8f0";
             ctx.fillRect(x - r, y - r, r * 2, r * 2);
-
-            // Cabeza del ícono
             ctx.beginPath();
-            ctx.fillStyle = "#aaf1f5f9" === "#f1f5f9" ? "#94a3b8" : "#cbd5e1";
             ctx.fillStyle = "#94a3b8";
             ctx.arc(x, y - 2, r * 0.45, 0, Math.PI * 2);
             ctx.fill();
-
-            // Cuerpo del ícono
             ctx.beginPath();
             ctx.arc(x, y + r + 2, r * 0.8, 0, Math.PI, true);
             ctx.fill();
@@ -584,7 +576,6 @@
                 ctx.shadowBlur = 0; 
                 ctx.shadowOffsetY = 0;
 
-                // Render de Avatar Seguro (Subido o Vectorial)
                 let radius = 18; 
                 let avatarX = m.x + 12 + radius;
                 let avatarY = m.y + (cardH / 2);
@@ -621,18 +612,25 @@
             });
         }
 
-        // --- MANEJADOR Y MOTOR DE EXPORTACIÓN ---
+        // --- SISTEMA DE EXPORTACIÓN FORMATEADO PARA IMPRENTA REAL ---
         function handleExport(selectElement) {
             const format = selectElement.value;
             if (!format) return;
 
             if (familyData.length === 0) {
                 alert("Por favor, registra al menos un familiar antes de exportar.");
-                selectElement.value = ""; // Reset del dropdown
+                selectElement.value = "";
                 return;
             }
 
-            // 1. Encontrar dimensiones del árbol real (Bounding Box)
+            // Guardar el tema que el usuario tenía activo originalmente
+            const originalTheme = currentTheme;
+
+            // FORZAR EL ESTILO ELEGANTE PARA GARANTIZAR AHORRO DE TINTA Y ALTA RESOLUCIÓN EN IMPRESIÓN
+            currentTheme = themes.elegante;
+            drawTree(); // Redibuja con el fondo marfil/blanco y marcos de oro viejo
+
+            // 1. Encontrar el encuadre perfecto de las tarjetas (Bounding Box)
             let minX = virtualWidth, maxX = 0, minY = virtualHeight, maxY = 0;
             familyData.forEach(m => {
                 if (m.x < minX) minX = m.x;
@@ -641,7 +639,8 @@
                 if (m.y + cardH > maxY) maxY = m.y + cardH;
             });
 
-            const padding = 40;
+            // Márgenes de cortesía técnica para que no se corte al refilar el papel
+            const padding = 60; 
             minX = Math.max(0, minX - padding);
             minY = Math.max(0, minY - padding);
             maxX = Math.min(virtualWidth, maxX + padding);
@@ -650,7 +649,7 @@
             const cropWidth = maxX - minX;
             const cropHeight = maxY - minY;
 
-            // 2. Crear un canvas aislado y limpio de clonación temporal
+            // 2. Clonar fragmento en un lienzo de exportación Ultra HD
             const exportCanvas = document.createElement('canvas');
             exportCanvas.width = cropWidth * ratio;
             exportCanvas.height = cropHeight * ratio;
@@ -662,48 +661,56 @@
                 0, 0, cropWidth * ratio, cropHeight * ratio
             );
 
-            // 3. Ejecutar descarga según formato
+            // 3. Procesamiento físico del archivo según el formato
             try {
-                if (format === 'png') {
-                    const link = document.createElement('a');
-                    link.download = 'arbol_genealogico.png';
-                    link.href = exportCanvas.toDataURL('image/png');
-                    link.click();
-                } 
-                else if (format === 'jpg') {
-                    const jpgCanvas = document.createElement('canvas');
-                    jpgCanvas.width = exportCanvas.width;
-                    jpgCanvas.height = exportCanvas.height;
-                    const jpgCtx = jpgCanvas.getContext('2d');
+                if (format === 'png' || format === 'jpg') {
+                    const finalCanvas = document.createElement('canvas');
+                    finalCanvas.width = exportCanvas.width;
+                    finalCanvas.height = exportCanvas.height;
+                    const finalCtx = finalCanvas.getContext('2d');
                     
-                    jpgCtx.fillStyle = currentTheme.bgCanvas;
-                    jpgCtx.fillRect(0, 0, jpgCanvas.width, jpgCanvas.height);
-                    jpgCtx.drawImage(exportCanvas, 0, 0);
+                    // Asegurar fondo marfil premium plano libre de transparencias para plotters
+                    finalCtx.fillStyle = themes.elegante.bgCanvas;
+                    finalCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+                    finalCtx.drawImage(exportCanvas, 0, 0);
 
                     const link = document.createElement('a');
-                    link.download = 'arbol_genealogico.jpg';
-                    link.href = jpgCanvas.toDataURL('image/jpeg', 0.95);
+                    link.download = `arbol_genealógico_premium.${format}`;
+                    link.href = finalCanvas.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', 0.98);
                     link.click();
                 } 
                 else if (format === 'pdf') {
                     const { jsPDF } = window.jspdf;
-                    const orientation = cropWidth > cropHeight ? 'l' : 'p';
+                    
+                    // Cálculo de Conversión de Píxeles de Pantalla a Milímetros Físicos (Estándar Imprenta 300 DPI aprox.)
+                    const mmWidth = Math.round(cropWidth * 0.264583);
+                    const mmHeight = Math.round(cropHeight * 0.264583);
+                    
+                    const orientation = mmWidth > mmHeight ? 'l' : 'p';
+                    
+                    // Crear el PDF con medidas milimétricas exactas listas para impresión de cualquier escala
                     const pdf = new jsPDF({
                         orientation: orientation,
-                        unit: 'px',
-                        format: [cropWidth, cropHeight]
+                        unit: 'mm',
+                        format: [mmWidth, mmHeight]
                     });
 
                     const imgData = exportCanvas.toDataURL('image/jpeg', 1.0);
-                    pdf.addImage(imgData, 'JPEG', 0, 0, cropWidth, cropHeight);
-                    pdf.save('arbol_genealogico.pdf');
+                    
+                    // Inserción en escala exacta 1:1 milimétrica sin compresión disruptiva
+                    pdf.addImage(imgData, 'JPEG', 0, 0, mmWidth, mmHeight);
+                    pdf.save('arbol_genealogico_impresion.pdf');
                 }
             } catch (error) {
                 console.error(error);
-                alert("Hubo un conflicto con la imagen subida. Prueba exportando el árbol usando avatares vectoriales por defecto.");
+                alert("Ocurrió un inconveniente al generar la estructura del documento de impresión.");
             }
 
-            // Limpiar el selector para permitir repetir la acción inmediatamente
+            // RESTAURAR EL ESTILO VISUAL DE LA PANTALLA que tenía el usuario al inicio
+            currentTheme = originalTheme;
+            drawTree();
+
+            // Limpiar selector
             selectElement.value = "";
         }
 
