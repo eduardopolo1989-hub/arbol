@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Árbol Genealógico Avanzado - Ultra HD</title>
+    <title>Árbol Genealógico Avanzado - Ultra HD Tematizado</title>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -86,16 +86,24 @@
             border-left: 3px solid var(--secondary-color);
             margin-bottom: 12px;
         }
+
+        .theme-select-container {
+            margin-top: 15px;
+            padding-top: 12px;
+            border-top: 2px solid #16a085;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
+        <!-- Panel Izquierdo -->
         <section class="form-section">
             <div class="instructions">
-                Arrastra tarjetas para moverlas. <strong>Haz doble clic sobre cualquier tarjeta</strong> en el lienzo para editar sus datos.
+                Arrastra tarjetas para moverlas. <strong>Doble clic sobre una tarjeta</strong> para editarla.
             </div>
 
+            <!-- 1. Registrar Familiar -->
             <div id="crudBlock">
                 <h2 id="formTitle">1. Registrar Familiar</h2>
                 <form id="treeForm">
@@ -129,6 +137,7 @@
                 </form>
             </div>
 
+            <!-- 2. Conectar Parentescos -->
             <div id="linkBlock" style="margin-top: 15px; padding-top: 12px; border-top: 2px solid var(--action-color);">
                 <h2 style="color: var(--action-color);">2. Conectar Parentescos</h2>
                 <div class="form-group">
@@ -149,8 +158,23 @@
                 </div>
                 <button type="button" onclick="executeAdvancedLink()" style="background-color: var(--action-color);">Establecer Vínculo</button>
             </div>
+
+            <!-- 3. Selector de Diseño Personalizado -->
+            <div class="theme-select-container">
+                <h2 style="color: #16a085;">3. Estilo Visual del Árbol</h2>
+                <div class="form-group">
+                    <label for="themeSelector">Seleccionar Diseño:</label>
+                    <select id="themeSelector" onchange="changeTreeTheme()">
+                        <option value="clasico">Clásico (Corporativo / Limpio)</option>
+                        <option value="elegante">Elegante (Premium / Oro & Oscuro)</option>
+                        <option value="moderno">Moderno (Minimalista / Neón)</option>
+                        <option value="estilizado">Estilizado (Vintage / Pastel)</option>
+                    </select>
+                </div>
+            </div>
         </section>
 
+        <!-- Lienzo -->
         <section class="canvas-section" id="canvasContainer">
             <canvas id="treeCanvas"></canvas>
         </section>
@@ -161,26 +185,87 @@
         const canvas = document.getElementById('treeCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Dimensiones lógicas de las tarjetas
         const cardW = 180;
         const cardH = 70;
-
-        // Dimensiones virtuales del Lienzo Completo
         const virtualWidth = 3000;
         const virtualHeight = 3000;
 
-        // --- SISTEMA DE CORRECCIÓN DE NITIDEZ EN PANTALLAS DE ALTA DENSIDAD (RETINA/HD) ---
+        // Configuración de Temas Visuales del Árbol
+        const themes = {
+            clasico: {
+                bgCanvas: "#fafafa",
+                cardBg: "#ffffff",
+                cardBorderAlive: "#3498db",
+                cardBorderDead: "#94a3b8",
+                textColorName: "#2c3e50",
+                textColorDate: "#64748b",
+                fontName: "bold 11px sans-serif",
+                fontDate: "10px sans-serif",
+                lineColor: "#94a3b8",
+                lineWidth: 2,
+                lineDash: [],
+                cardRadius: 8,
+                shadowBlur: 4,
+                shadowColor: "rgba(0,0,0,0.05)"
+            },
+            elegante: {
+                bgCanvas: "#1a1a1a",
+                cardBg: "#2c2c2c",
+                cardBorderAlive: "#d4af37", // Oro
+                cardBorderDead: "#aa9162",
+                textColorName: "#f3e5ab",
+                textColorDate: "#bfa37a",
+                fontName: "italic bold 12px Georgia, serif",
+                fontDate: "10px Georgia, serif",
+                lineColor: "#d4af37",
+                lineWidth: 1.5,
+                lineDash: [],
+                cardRadius: 4,
+                shadowBlur: 10,
+                shadowColor: "rgba(212, 175, 55, 0.2)"
+            },
+            moderno: {
+                bgCanvas: "#0f172a",
+                cardBg: "#1e293b",
+                cardBorderAlive: "#00f5d4", // Neón Menta
+                cardBorderDead: "#475569",
+                textColorName: "#ffffff",
+                textColorDate: "#94a3b8",
+                fontName: "bold 10px 'Courier New', monospace",
+                fontDate: "9px 'Courier New', monospace",
+                lineColor: "#00f5d4",
+                lineWidth: 2,
+                lineDash: [4, 4],
+                cardRadius: 0, // Recto total
+                shadowBlur: 6,
+                shadowColor: "rgba(0, 245, 212, 0.15)"
+            },
+            estilizado: {
+                bgCanvas: "#f4f1ea",
+                cardBg: "#fffdf9",
+                cardBorderAlive: "#9b59b6", // Amatista
+                cardBorderDead: "#bdc3c7",
+                textColorName: "#4a285d",
+                textColorDate: "#7f8c8d",
+                fontName: "bold 11px 'Trebuchet MS', sans-serif",
+                fontDate: "10px 'Trebuchet MS', sans-serif",
+                lineColor: "#9b59b6",
+                lineWidth: 2.5,
+                lineDash: [1, 2],
+                cardRadius: 16, // Súper redondeado
+                shadowBlur: 5,
+                shadowColor: "rgba(155, 89, 181, 0.1)"
+            }
+        };
+
+        let currentTheme = themes.clasico; // Por defecto
+
+        // --- SISTEMA DE CORRECCIÓN DE NITIDEZ EN PANTALLAS (RETINA/HD) ---
         const ratio = window.devicePixelRatio || 1;
-        
-        // 1. Definir el tamaño físico real en píxeles de pantalla
         canvas.width = virtualWidth * ratio;
         canvas.height = virtualHeight * ratio;
-        
-        // 2. Definir el tamaño visual que ocupará en la página usando CSS
         canvas.style.width = virtualWidth + "px";
         canvas.style.height = virtualHeight + "px";
-        
-        // 3. Escalar de forma permanente el contexto de dibujo para mantener la compatibilidad de coordenadas lógicas
         ctx.scale(ratio, ratio);
 
         let selectedMember = null;
@@ -190,6 +275,13 @@
 
         const defaultImg = new Image();
         defaultImg.src = 'https://cdn-icons-png.flaticon.com/512/847/847969.png';
+
+        function changeTreeTheme() {
+            const selectedValue = document.getElementById('themeSelector').value;
+            currentTheme = themes[selectedValue];
+            canvas.style.backgroundColor = currentTheme.bgCanvas;
+            drawTree();
+        }
 
         function toggleDeathField() {
             const isAlive = document.getElementById('isAlive').checked;
@@ -409,23 +501,22 @@
             return `${parts[2]}/${parts[1]}/${parts[0]}`;
         }
 
-        // MOTOR DE RENDERIZADO ULTRA HD
+        // MOTOR DE RENDERIZADO ULTRA HD TEMATIZADO
         function drawTree() {
             ctx.clearRect(0, 0, virtualWidth, virtualHeight);
             if (familyData.length === 0) return;
 
-            // Activación de antialiasing de alta calidad de imagen en el buffer
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
 
-            // 1. DIBUJAR LÍNEAS
+            // 1. DIBUJAR LÍNEAS SEGÚN EL TEMA SELECCIONADO
             familyData.forEach(m => {
                 if (m.spouseId) {
                     const spouse = familyData.find(s => s.id === m.spouseId);
                     if (spouse && m.id < spouse.id) {
                         ctx.beginPath();
-                        ctx.strokeStyle = "#e02424";
-                        ctx.lineWidth = 2.5;
+                        ctx.strokeStyle = "#e02424"; // Se mantiene rojo para destacar matrimonio
+                        ctx.lineWidth = currentTheme.lineWidth + 0.5;
                         ctx.setLineDash([3, 3]);
                         ctx.moveTo(m.x + cardW, m.y + cardH / 2);
                         ctx.lineTo(spouse.x, spouse.y + cardH / 2);
@@ -435,6 +526,11 @@
                 }
 
                 if (m.parents && m.parents.length > 0) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = currentTheme.lineColor;
+                    ctx.lineWidth = currentTheme.lineWidth;
+                    ctx.setLineDash(currentTheme.lineDash);
+
                     if (m.parents.length >= 2) {
                         const p1 = familyData.find(p => p.id === m.parents[0]);
                         const p2 = familyData.find(p => p.id === m.parents[1]);
@@ -442,45 +538,40 @@
                             let midX = (p1.x + p2.x + cardW) / 2;
                             let midY = (p1.y + p2.y + cardH) / 2;
 
-                            ctx.beginPath();
-                            ctx.strokeStyle = "#94a3b8";
-                            ctx.lineWidth = 2;
                             ctx.moveTo(midX, midY);
                             ctx.lineTo(midX, m.y - 15);
                             ctx.lineTo(m.x + cardW / 2, m.y - 15);
                             ctx.lineTo(m.x + cardW / 2, m.y);
-                            ctx.stroke();
                         }
                     } else {
                         const parent = familyData.find(p => p.id === m.parents[0]);
                         if (parent) {
-                            ctx.beginPath();
-                            ctx.strokeStyle = "#94a3b8";
-                            ctx.lineWidth = 2;
                             ctx.moveTo(parent.x + cardW / 2, parent.y + cardH);
                             ctx.lineTo(parent.x + cardW / 2, m.y - 15);
                             ctx.lineTo(m.x + cardW / 2, m.y - 15);
                             ctx.lineTo(m.x + cardW / 2, m.y);
-                            ctx.stroke();
                         }
                     }
+                    ctx.stroke();
+                    ctx.setLineDash([]);
                 }
             });
 
-            // 2. RENDERIZAR TARJETAS EN ALTA DENSIDAD
+            // 2. RENDERIZAR TARJETAS SEGÚN EL TEMA SELECCIONADO
             familyData.forEach(m => {
-                ctx.fillStyle = "#ffffff";
-                ctx.shadowColor = "rgba(0, 0, 0, 0.05)";
-                ctx.shadowBlur = 4;
-                ctx.shadowOffsetY = 2;
-                ctx.strokeStyle = m.isAlive ? "#3498db" : "#94a3b8";
-                ctx.lineWidth = 1.5;
+                ctx.fillStyle = currentTheme.cardBg;
+                ctx.shadowColor = currentTheme.shadowColor;
+                ctx.shadowBlur = currentTheme.shadowBlur;
+                ctx.shadowOffsetY = currentTheme.shadowBlur > 0 ? 3 : 0;
+                ctx.strokeStyle = m.isAlive ? currentTheme.cardBorderAlive : currentTheme.cardBorderDead;
+                ctx.lineWidth = 1.8;
                 
                 ctx.beginPath();
-                ctx.roundRect(m.x, m.y, cardW, cardH, 8);
+                ctx.roundRect(m.x, m.y, cardW, cardH, currentTheme.cardRadius);
                 ctx.fill();
                 ctx.stroke();
                 
+                // Desactivar sombras temporales para textos e imágenes
                 ctx.shadowBlur = 0; 
                 ctx.shadowOffsetY = 0;
 
@@ -498,23 +589,26 @@
                 const birthFormatted = formatDateString(m.birth);
                 const deathFormatted = formatDateString(m.death);
 
-                // Textos Vectoriales Puros (Renderizados directamente a escala nativa)
-                ctx.fillStyle = "#2c3e50";
-                ctx.font = "bold 11px sans-serif";
+                // Aplicación de Textos e hilos tipográficos del Tema
+                ctx.fillStyle = currentTheme.textColorName;
+                ctx.font = currentTheme.fontName;
                 ctx.fillText(m.name, m.x + 54, m.y + 28, cardW - 65);
 
-                ctx.fillStyle = "#64748b";
-                ctx.font = "10px sans-serif";
+                ctx.fillStyle = currentTheme.textColorDate;
+                ctx.font = currentTheme.fontDate;
                 const dateText = m.isAlive ? `Nac: ${birthFormatted}` : `${birthFormatted} - ${deathFormatted}`;
                 ctx.fillText(dateText, m.x + 54, m.y + 45);
 
-                // Estado de Vida
+                // Pequeño indicador de Vida Minimalista
                 ctx.beginPath();
                 ctx.fillStyle = m.isAlive ? "#27ae60" : "#7f8c8d";
                 ctx.arc(m.x + cardW - 10, m.y + 10, 3, 0, Math.PI * 2);
                 ctx.fill();
             });
         }
+
+        // Inicialización del fondo inicial del lienzo
+        canvas.style.backgroundColor = currentTheme.bgCanvas;
     </script>
 </body>
 </html>
