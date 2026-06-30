@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Árbol Genealógico Inteligente Interconectado</title>
+    <title>Árbol Genealógico Interactivo (Drag & Drop)</title>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -56,19 +56,30 @@
         button { width: 100%; padding: 10px; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
         .btn-submit { background-color: var(--secondary-color); }
         .btn-submit:hover { background-color: #2980b9; }
-        .btn-cancel { background-color: #94a3b8; margin-top: 8px; }
 
         .canvas-section {
             position: relative;
             background: #ffffff;
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-            overflow: auto;
+            overflow: hidden;
+            cursor: grab;
         }
+        .canvas-section:active { cursor: grabbing; }
 
         #treeCanvas {
             background-color: #fafafa;
             display: block;
+        }
+
+        .instructions {
+            font-size: 0.75rem;
+            color: #64748b;
+            background: #f8fafc;
+            padding: 8px;
+            border-radius: 6px;
+            border-left: 3px solid var(--secondary-color);
+            margin-bottom: 15px;
         }
     </style>
 </head>
@@ -76,10 +87,13 @@
 
     <div class="container">
         <section class="form-section">
+            <div class="instructions">
+                💡 <strong>Tip de control:</strong> Registra tus familiares y relaciónalos. Si se enciman o quieres ordenarlos a tu gusto, simplemente <strong>haz clic sobre la tarjeta en el lienzo y arrástrala</strong> a donde quieras.
+            </div>
+
             <div id="crudBlock">
                 <h2>1. Registrar Familiar</h2>
                 <form id="treeForm">
-                    <input type="hidden" id="editingMemberId" value="">
                     <div class="form-group">
                         <label for="names">Nombres:</label>
                         <input type="text" id="names" required placeholder="Ej. Carlos">
@@ -104,7 +118,7 @@
                         <label for="photo">Foto del Familiar:</label>
                         <input type="file" id="photo" accept="image/*">
                     </div>
-                    <button type="submit" class="btn-submit" id="btnSubmit">Guardar Persona</button>
+                    <button type="submit" class="btn-submit">Guardar Persona</button>
                 </form>
             </div>
 
@@ -117,9 +131,9 @@
                 <div class="form-group">
                     <label for="advancedRelationshipType">Relación:</label>
                     <select id="advancedRelationshipType">
-                        <option value="es_esposo">Es ESPOSO/A de (Al lado)</option>
-                        <option value="es_hijo">Es PADRE/MADRE de (El destino va ABAJO)</option>
-                        <option value="es_padre">Es HIJO/A de (El destino va ARRIBA)</option>
+                        <option value="es_esposo">Es ESPOSO/A de (Línea horizontal)</option>
+                        <option value="es_hijo">Es PADRE/MADRE de (Línea hacia abajo)</option>
+                        <option value="es_padre">Es HIJO/A de (Línea hacia arriba)</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -131,7 +145,7 @@
         </section>
 
         <section class="canvas-section" id="canvasContainer">
-            <canvas id="treeCanvas" width="2500" height="2500"></canvas>
+            <canvas id="treeCanvas" width="2000" height="2000"></canvas>
         </section>
     </div>
 
@@ -140,6 +154,15 @@
         const canvas = document.getElementById('treeCanvas');
         const ctx = canvas.getContext('2d');
         
+        const cardW = 220;
+        const cardH = 90;
+
+        // Variables para el control de arrastre (Drag and Drop)
+        let selectedMember = null;
+        let isDragging = false;
+        let offsetX = 0;
+        let offsetY = 0;
+
         const defaultImg = new Image();
         defaultImg.src = 'https://cdn-icons-png.flaticon.com/512/847/847969.png';
 
@@ -194,7 +217,6 @@
                 if (!source.parents.includes(targetId)) source.parents.push(targetId);
             }
 
-            calculatePositions();
             drawTree();
         }
 
@@ -207,6 +229,10 @@
             const deathYear = document.getElementById('deathYear').value;
             const photoInput = document.getElementById('photo');
 
+            // Posición inicial aleatoria controlada cerca del centro para evitar colisiones amontonadas
+            const spawnX = 400 + (familyData.length * 30) % 300;
+            const spawnY = 200 + (familyData.length * 40) % 200;
+
             const newMember = {
                 id: 'mem_' + Date.now(),
                 name: `${names} ${lastNames}`,
@@ -215,9 +241,8 @@
                 death: isAlive ? null : deathYear,
                 parents: [],
                 spouseId: null,
-                x: 0,
-                y: 0,
-                level: 1,
+                x: spawnX,
+                y: spawnY,
                 imgObj: defaultImg 
             };
 
@@ -243,88 +268,55 @@
             document.getElementById('treeForm').reset();
             toggleDeathField();
             refreshSelectors();
-            calculatePositions();
             drawTree();
         }
 
-        // NUEVO ALGORITMO DETERMINISTA ANTI-MUTACIÓN DE COORDENADAS
-        function calculatePositions() {
-            if (familyData.length === 0) return;
+        // --- SISTEMA MOUSE DRAG & DROP ---
+        canvas.addEventListener('mousedown', function(e) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
 
-            const cardW = 220;
-            const levelH = 180;
-            const startX = 500;
-            const startY = 300;
-
-            // Buscamos al miembro inicial (quien orquesta el árbol)
-            const root = familyData[0];
-            
-            // Forzar posiciones estables sin importar los rebotes de relaciones
-            root.x = startX;
-            root.y = startY;
-            root.level = 1;
-
-            // Procesar relaciones directas asignando coordenadas fijas absolutas
-            familyData.forEach(m => {
-                // Si tiene cónyuge, va a la derecha de manera inamovible
-                if (m.spouseId) {
-                    const spouse = familyData.find(s => s.id === m.spouseId);
-                    if (spouse) {
-                        if (m === root || m.x !== 0) {
-                            spouse.x = m.x + cardW + 80; // Separación fija prudente
-                            spouse.y = m.y;
-                            spouse.level = m.level;
-                        }
-                    }
+            // Recorrer al revés para seleccionar el que está más "arriba" visualmente
+            for (let i = familyData.length - 1; i >= 0; i--) {
+                const m = familyData[i];
+                if (mouseX >= m.x && mouseX <= m.x + cardW && mouseY >= m.y && mouseY <= m.y + cardH) {
+                    selectedMember = m;
+                    isDragging = true;
+                    offsetX = mouseX - m.x;
+                    offsetY = mouseY - m.y;
+                    break;
                 }
-            });
+            }
+        });
 
-            // Posicionar hijos basándose en sus padres de forma vertical hacia abajo
-            familyData.forEach(m => {
-                if (m.parents && m.parents.length > 0) {
-                    m.level = 2; // Nivel de hijos fijo por debajo de los padres
-                    m.y = startY + levelH;
+        canvas.addEventListener('mousemove', function(e) {
+            if (!isDragging || !selectedMember) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
 
-                    // Si tiene dos padres registrados en el sistema, lo centramos matemáticamente entre ellos
-                    if (m.parents.length >= 2) {
-                        const p1 = familyData.find(p => p.id === m.parents[0]);
-                        const p2 = familyData.find(p => p.id === m.parents[1]);
-                        if (p1 && p2) {
-                            const minX = Math.min(p1.x, p2.x);
-                            const maxX = Math.max(p1.x, p2.x);
-                            m.x = minX + ((maxX - minX) / 2);
-                        }
-                    } else {
-                        // Un solo padre
-                        const p1 = familyData.find(p => p.id === m.parents[0]);
-                        if (p1) m.x = p1.x + 40;
-                    }
-                }
-            });
+            // Actualizar coordenadas en tiempo real
+            selectedMember.x = mouseX - offsetX;
+            selectedMember.y = mouseY - offsetY;
 
-            // Posicionar abuelos (padres de la raíz) de manera vertical hacia arriba
-            familyData.forEach(m => {
-                if (root.parents.includes(m.id)) {
-                    m.level = 0;
-                    m.y = startY - levelH;
-                    if (!m.spouseId) {
-                        m.x = root.x - 80;
-                    }
-                }
-            });
-        }
+            drawTree(); // Redibuja todo instantáneamente
+        });
 
-        // MOTOR DE DIBUJO CON SOPORTE DE UNIÓN MULTI-PADRE PERFECTO
+        window.addEventListener('mouseup', function() {
+            isDragging = false;
+            selectedMember = null;
+        });
+
+
+        // --- MOTOR GRÁFICO DINÁMICO ---
         function drawTree() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (familyData.length === 0) return;
 
-            const cardW = 220;
-            const cardH = 90;
-
-            // 1. RENDERIZADO DE LÍNEAS DE RELACIÓN EN ESCUADRA
+            // 1. DIBUJAR LÍNEAS ESTRUCTURALES DINÁMICAS
             familyData.forEach(m => {
-                // Dibujar Línea de Cónyuges
+                // Parejas: Línea directa elástica
                 if (m.spouseId) {
                     const spouse = familyData.find(s => s.id === m.spouseId);
                     if (spouse && m.id < spouse.id) {
@@ -339,34 +331,35 @@
                     }
                 }
 
-                // Dibujar Línea de Descendencia (Hijos)
+                // Hijos: Trazo ortogonal adaptativo según donde muevas las tarjetas
                 if (m.parents && m.parents.length > 0) {
                     if (m.parents.length >= 2) {
                         const p1 = familyData.find(p => p.id === m.parents[0]);
                         const p2 = familyData.find(p => p.id === m.parents[1]);
                         if (p1 && p2) {
-                            // Punto medio exacto del cable de los padres
-                            let midX = (Math.min(p1.x, p2.x) + cardW + Math.max(p1.x, p2.x)) / 2;
-                            let midY = p1.y + cardH / 2;
+                            // Calcula dinámicamente el punto intermedio de la pareja
+                            let midX = (p1.x + p2.x + cardW) / 2;
+                            let midY = (p1.y + p2.y + cardH) / 2;
 
                             ctx.beginPath();
                             ctx.strokeStyle = "#94a3b8";
                             ctx.lineWidth = 2.5;
                             ctx.moveTo(midX, midY);
-                            ctx.lineTo(midX, m.y - 25);
-                            ctx.lineTo(m.x + cardW / 2, m.y - 25);
+                            ctx.lineTo(midX, m.y - 20);
+                            ctx.lineTo(m.x + cardW / 2, m.y - 20);
                             ctx.lineTo(m.x + cardW / 2, m.y);
                             ctx.stroke();
                         }
                     } else {
+                        // Un solo padre registrado
                         const parent = familyData.find(p => p.id === m.parents[0]);
                         if (parent) {
                             ctx.beginPath();
                             ctx.strokeStyle = "#94a3b8";
                             ctx.lineWidth = 2.5;
                             ctx.moveTo(parent.x + cardW / 2, parent.y + cardH);
-                            ctx.lineTo(parent.x + cardW / 2, m.y - 25);
-                            ctx.lineTo(m.x + cardW / 2, m.y - 25);
+                            ctx.lineTo(parent.x + cardW / 2, m.y - 20);
+                            ctx.lineTo(m.x + cardW / 2, m.y - 20);
                             ctx.lineTo(m.x + cardW / 2, m.y);
                             ctx.stroke();
                         }
@@ -374,7 +367,7 @@
                 }
             });
 
-            // 2. RENDERIZADO DE LAS TARJETAS GRÁFICAS
+            // 2. RENDERIZAR LAS TARJETAS EN SUS NUEVAS COORDENADAS
             familyData.forEach(m => {
                 ctx.fillStyle = "#ffffff";
                 ctx.shadowColor = "rgba(0, 0, 0, 0.06)";
@@ -412,7 +405,7 @@
                 const dateText = m.isAlive ? `Nac: ${m.birth}` : `${m.birth} - ${m.death}`;
                 ctx.fillText(dateText, m.x + 80, m.y + 58);
 
-                // LED de Actividad
+                // LED de Estado de Vida
                 ctx.beginPath();
                 ctx.fillStyle = m.isAlive ? "#27ae60" : "#7f8c8d";
                 ctx.arc(m.x + cardW - 15, m.y + 15, 4, 0, Math.PI * 2);
