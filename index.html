@@ -109,16 +109,16 @@
                         <input type="text" id="lastNames" required placeholder="Apellidos">
                     </div>
                     <div class="form-group">
-                        <label for="birthYear">Año de Nacimiento:</label>
-                        <input type="number" id="birthYear" min="1700" max="2026" required placeholder="Ej. 1989">
+                        <label for="birthDate">Fecha de Nacimiento:</label>
+                        <input type="date" id="birthDate" required>
                     </div>
                     <div class="form-group checkbox-group">
                         <input type="checkbox" id="isAlive" checked onchange="toggleDeathField()">
                         <label for="isAlive">¿Está con vida?</label>
                     </div>
                     <div class="form-group hidden" id="deathGroup">
-                        <label for="deathYear">Año de Fallecimiento:</label>
-                        <input type="number" id="deathYear" min="1700" max="2026">
+                        <label for="deathDate">Fecha de Fallecimiento:</label>
+                        <input type="date" id="deathDate">
                     </div>
                     <div class="form-group">
                         <label for="photo">Foto (Opcional):</label>
@@ -231,19 +231,18 @@
             const editingId = document.getElementById('editingMemberId').value;
             const names = document.getElementById('names').value;
             const lastNames = document.getElementById('lastNames').value;
-            const birthYear = document.getElementById('birthYear').value;
+            const birthDate = document.getElementById('birthDate').value;
             const isAlive = document.getElementById('isAlive').checked;
-            const deathYear = document.getElementById('deathYear').value;
+            const deathDate = document.getElementById('deathDate').value;
             const photoInput = document.getElementById('photo');
 
             if (editingId) {
-                // MODO EDICIÓN: Buscar el nodo existente y actualizar propiedades reteniendo coordenadas y conexiones
                 const member = familyData.find(m => m.id === editingId);
                 if (member) {
                     member.name = `${names} ${lastNames}`;
-                    member.birth = birthYear;
+                    member.birth = birthDate;
                     member.isAlive = isAlive;
-                    member.death = isAlive ? null : deathYear;
+                    member.death = isAlive ? null : deathDate;
 
                     if (photoInput.files && photoInput.files[0]) {
                         const reader = new FileReader();
@@ -261,16 +260,15 @@
                     }
                 }
             } else {
-                // MODO CREACIÓN
                 const spawnX = 300 + (familyData.length * 25) % 250;
                 const spawnY = 150 + (familyData.length * 30) % 150;
 
                 const newMember = {
                     id: 'mem_' + Date.now(),
                     name: `${names} ${lastNames}`,
-                    birth: birthYear,
+                    birth: birthDate,
                     isAlive: isAlive,
-                    death: isAlive ? null : deathYear,
+                    death: isAlive ? null : deathDate,
                     parents: [],
                     spouseId: null,
                     x: spawnX,
@@ -349,7 +347,7 @@
             selectedMember = null;
         });
 
-        // DETECTOR DE DOBLE CLIC PARA CARGAR EL CRUD DE EDICIÓN
+        // DETECTOR DE DOBLE CLIC PARA EDICIÓN
         canvas.addEventListener('dblclick', function(e) {
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left + document.getElementById('canvasContainer').scrollLeft;
@@ -358,26 +356,23 @@
             for (let i = familyData.length - 1; i >= 0; i--) {
                 const m = familyData[i];
                 if (mouseX >= m.x && mouseX <= m.x + cardW && mouseY >= m.y && mouseY <= m.y + cardH) {
-                    // Segmentar nombres y apellidos aproximados para el formulario
                     const nameParts = m.name.split(" ");
                     const first = nameParts[0] || "";
                     const last = nameParts.slice(1).join(" ") || "";
 
-                    // Inyectar datos en el formulario izquierdo
                     document.getElementById('editingMemberId').value = m.id;
                     document.getElementById('names').value = first;
                     document.getElementById('lastNames').value = last;
-                    document.getElementById('birthYear').value = m.birth;
+                    document.getElementById('birthDate').value = m.birth;
                     document.getElementById('isAlive').checked = m.isAlive;
                     
                     if(!m.isAlive) {
                         document.getElementById('deathGroup').classList.remove('hidden');
-                        document.getElementById('deathYear').value = m.death;
+                        document.getElementById('deathDate').value = m.death;
                     } else {
                         document.getElementById('deathGroup').classList.add('hidden');
                     }
 
-                    // Cambiar estados visuales de la interfaz en modo Edición
                     document.getElementById('formTitle').textContent = "✏️ Editando Familiar";
                     document.getElementById('formTitle').style.color = "var(--edit-color)";
                     document.getElementById('btnSubmit').textContent = "Actualizar Datos";
@@ -470,6 +465,10 @@
                 ctx.drawImage(m.imgObj, m.x + 12, m.y + (cardH / 2) - radius, radius * 2, radius * 2);
                 ctx.restore();
 
+                // Obtener solo el año de las strings de fecha (AAAA-MM-DD)
+                const birthYear = m.birth ? m.birth.split("-")[0] : "????";
+                const deathYear = m.death ? m.death.split("-")[0] : "????";
+
                 // Textos Ajustados de Alta Densidad
                 ctx.fillStyle = "#2c3e50";
                 ctx.font = "bold 11px sans-serif";
@@ -477,7 +476,7 @@
 
                 ctx.fillStyle = "#64748b";
                 ctx.font = "10px sans-serif";
-                const dateText = m.isAlive ? `Nac: ${m.birth}` : `${m.birth} - ${m.death}`;
+                const dateText = m.isAlive ? `Nac: ${birthYear}` : `${birthYear} - ${deathYear}`;
                 ctx.fillText(dateText, m.x + 56, m.y + 44);
 
                 // Indicador de vida minimalista
