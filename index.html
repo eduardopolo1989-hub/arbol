@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Árbol Genealógico Avanzado - Ultra HD Tematizado</title>
+    <title>Árbol Genealógico Avanzado - Sistema Completo</title>
+    <!-- Inclusión de jsPDF para la exportación de documentos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -14,6 +16,7 @@
             --card-bg: #ffffff;
             --action-color: #8e44ad;
             --edit-color: #e67e22;
+            --export-color: #27ae60;
         }
 
         body {
@@ -91,6 +94,20 @@
             margin-top: 15px;
             padding-top: 12px;
             border-top: 2px solid #16a085;
+        }
+
+        .export-container {
+            margin-top: 15px;
+            padding-top: 12px;
+            border-top: 2px solid var(--export-color);
+        }
+
+        .btn-export {
+            background-color: var(--export-color);
+            margin-bottom: 6px;
+        }
+        .btn-export:hover {
+            background-color: #219653;
         }
     </style>
 </head>
@@ -173,6 +190,17 @@
                     </select>
                 </div>
             </div>
+
+            <!-- 4. Exportar Módulo -->
+            <div class="export-container">
+                <h2 style="color: var(--export-color);">4. Exportar Archivo</h2>
+                <div class="form-group">
+                    <label>Selecciona el Formato de Salida:</label>
+                    <button type="button" class="btn-export" onclick="exportTree('png')">Descargar como PNG</button>
+                    <button type="button" class="btn-export" onclick="exportTree('jpg')">Descargar como JPG</button>
+                    <button type="button" class="btn-export" onclick="exportTree('pdf')">Descargar como PDF Documento</button>
+                </div>
+            </div>
         </section>
 
         <!-- Lienzo -->
@@ -210,11 +238,11 @@
                 shadowColor: "rgba(0,0,0,0.05)"
             },
             elegante: {
-                bgCanvas: "#fdfbf7", // Fondo marfil ultra suave (Ahorro de tinta)
-                cardBg: "#ffffff",   // Tarjeta blanca pura limpia
-                cardBorderAlive: "#c5a059", // Oro viejo heráldico
+                bgCanvas: "#fdfbf7", 
+                cardBg: "#ffffff",   
+                cardBorderAlive: "#c5a059", 
                 cardBorderDead: "#a39070",
-                textColorName: "#2c2416",   // Gris oscuro con matiz café premium
+                textColorName: "#2c2416",   
                 textColorDate: "#6e6557",
                 fontName: "italic bold 11.5px Georgia, serif",
                 fontDate: "10px Georgia, serif",
@@ -222,7 +250,7 @@
                 lineWidth: 1.5,
                 lineDash: [],
                 cardRadius: 4,
-                shadowBlur: 2, // Sombra atenuada para evitar manchas de impresión
+                shadowBlur: 2, 
                 shadowColor: "rgba(197, 160, 89, 0.1)"
             },
             moderno: {
@@ -625,6 +653,86 @@
                     ctx.fill();
                 }
             });
+        }
+
+        // --- SISTEMA INTELIGENTE DE EXPORTACIÓN MULTI-FORMATO ---
+        function exportTree(format) {
+            if (familyData.length === 0) {
+                alert("Por favor, registra al menos un familiar antes de exportar.");
+                return;
+            }
+
+            // 1. Detectar el área real que ocupan las tarjetas (Bounding Box) para evitar exportar un lienzo vacío gigante
+            let minX = virtualWidth, maxX = 0, minY = virtualHeight, maxY = 0;
+            familyData.forEach(m => {
+                if (m.x < minX) minX = m.x;
+                if (m.x + cardW > maxX) maxX = m.x + cardW;
+                if (m.y < minY) minY = m.y;
+                if (m.y + cardH > maxY) maxY = m.y + cardH;
+            });
+
+            // Añadir un margen de cortesía de 40px alrededor del árbol estructurado
+            const padding = 40;
+            minX = Math.max(0, minX - padding);
+            minY = Math.max(0, minY - padding);
+            maxX = Math.min(virtualWidth, maxX + padding);
+            maxY = Math.min(virtualHeight, maxY + padding);
+
+            const cropWidth = maxX - minX;
+            const cropHeight = maxY - minY;
+
+            // 2. Crear un canvas auxiliar perfectamente ajustado al tamaño de tu árbol
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = cropWidth * ratio;
+            exportCanvas.height = cropHeight * ratio;
+            const exportCtx = exportCanvas.getContext('2d');
+
+            // Dibujar la sección recortada del canvas original manteniendo la nitidez HD
+            exportCtx.drawImage(
+                canvas, 
+                minX * ratio, minY * ratio, cropWidth * ratio, cropHeight * ratio, 
+                0, 0, cropWidth * ratio, cropHeight * ratio
+            );
+
+            // 3. Procesar descargas según el formato elegido
+            if (format === 'png') {
+                const link = document.createElement('a');
+                link.download = 'arbol_genealogico.png';
+                link.href = exportCanvas.toDataURL('image/png');
+                link.click();
+            } 
+            else if (format === 'jpg') {
+                // El formato JPG requiere un fondo sólido si el diseño original tuviera transparencias
+                const jpgCanvas = document.createElement('canvas');
+                jpgCanvas.width = exportCanvas.width;
+                jpgCanvas.height = exportCanvas.height;
+                const jpgCtx = jpgCanvas.getContext('2d');
+                
+                jpgCtx.fillStyle = currentTheme.bgCanvas;
+                jpgCtx.fillRect(0, 0, jpgCanvas.width, jpgCanvas.height);
+                jpgCtx.drawImage(exportCanvas, 0, 0);
+
+                const link = document.createElement('a');
+                link.download = 'arbol_genealogico.jpg';
+                link.href = jpgCanvas.toDataURL('image/jpeg', 0.95); // 95% de calidad de compresión
+                link.click();
+            } 
+            else if (format === 'pdf') {
+                const { jsPDF } = window.jspdf;
+                
+                // Determinar orientación óptima del documento (Horizontal o Vertical)
+                const orientation = cropWidth > cropHeight ? 'l' : 'p';
+                const pdf = new jsPDF({
+                    orientation: orientation,
+                    unit: 'px',
+                    format: [cropWidth, cropHeight]
+                });
+
+                // Convertir canvas recortado a imagen JPG de alta fidelidad e insertarla en el PDF
+                const imgData = exportCanvas.toDataURL('image/jpeg', 1.0);
+                pdf.addImage(imgData, 'JPEG', 0, 0, cropWidth, cropHeight);
+                pdf.save('arbol_genealogico.pdf');
+            }
         }
 
         // Inicialización del fondo inicial del lienzo
