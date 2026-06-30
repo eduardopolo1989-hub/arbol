@@ -108,12 +108,26 @@
             background-color: #f4fbf7;
             cursor: pointer;
         }
+
+        /* Indicador visual de estado de sincronización con la nube */
+        .cloud-status {
+            font-size: 0.8rem;
+            font-weight: bold;
+            padding: 6px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            text-align: center;
+            background-color: #fef3c7;
+            color: #d97706;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
         <section class="form-section">
+            <div id="syncStatus" class="cloud-status">Conectando con Google Sheets...</div>
+
             <div class="instructions">
                 Arrastra tarjetas para moverlas. <strong>Doble clic sobre una tarjeta</strong> para editarla.
             </div>
@@ -206,6 +220,11 @@
     </div>
 
     <script>
+        // ==========================================
+        // CONFIGURACIÓN: PEGA TU URL DE GOOGLE APPS SCRIPT AQUÍ ABAJO
+        // ==========================================
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyaQroG-d468UiedqyVoUMQulda5LlykZHKfUp9s-pVL_sVVgo9GhAOA25ftjvtvGX7/exec";
+
         let familyData = [];
         const canvas = document.getElementById('treeCanvas');
         const ctx = canvas.getContext('2d');
@@ -261,6 +280,52 @@
         let isDragging = false;
         let offsetX = 0;
         let offsetY = 0;
+
+        // FUNCIONES DE CARGA Y GUARDADO DESDE GOOGLE SHEETS
+        async function loadFromGoogleSheets() {
+            if (WEB_APP_URL.includes("AQUI_PEGA_TU_URL")) {
+                updateSyncStatus("⚠️ Falta configurar URL de Sheets", "#fee2e2", "#991b1b");
+                return;
+            }
+            try {
+                const response = await fetch(WEB_APP_URL);
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    familyData = data;
+                    updateSyncStatus("✅ Sincronizado con Google Sheets", "#dcfce7", "#166534");
+                    finalizeRender();
+                } else {
+                    updateSyncStatus("⚠️ Error al interpretar la base de datos", "#fee2e2", "#991b1b");
+                }
+            } catch (error) {
+                console.error(error);
+                updateSyncStatus("❌ Error de conexión al leer datos", "#fee2e2", "#991b1b");
+            }
+        }
+
+        async function saveToGoogleSheets() {
+            if (WEB_APP_URL.includes("AQUI_PEGA_TU_URL")) return;
+            updateSyncStatus("🔄 Subiendo cambios a la nube...", "#fef3c7", "#d97706");
+            try {
+                const response = await fetch(WEB_APP_URL, {
+                    method: "POST",
+                    mode: "no-cors", // Evita bloqueos CORS del navegador locales
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "saveAll", data: familyData })
+                });
+                updateSyncStatus("✅ Cambios guardados en la nube", "#dcfce7", "#166534");
+            } catch (error) {
+                console.error(error);
+                updateSyncStatus("❌ Fallo el guardado automático remoto", "#fee2e2", "#991b1b");
+            }
+        }
+
+        function updateSyncStatus(text, bg, color) {
+            const el = document.getElementById("syncStatus");
+            el.textContent = text;
+            el.style.backgroundColor = bg;
+            el.style.color = color;
+        }
 
         function changeTreeTheme() {
             const selectedValue = document.getElementById('themeSelector').value;
@@ -321,6 +386,7 @@
             }
 
             drawTree();
+            saveToGoogleSheets(); // Guardar relación
         }
 
         document.getElementById('treeForm').addEventListener('submit', function(e) {
@@ -349,11 +415,13 @@
                             customImg.onload = function() {
                                 member.imgObj = customImg;
                                 finalizeRender();
+                                saveToGoogleSheets();
                             };
                         };
                         reader.readAsDataURL(photoInput.files[0]);
                     } else {
                         finalizeRender();
+                        saveToGoogleSheets();
                     }
                 }
             } else {
@@ -382,12 +450,14 @@
                             newMember.imgObj = customImg;
                             familyData.push(newMember);
                             finalizeRender();
+                            saveToGoogleSheets();
                         };
                     };
                     reader.readAsDataURL(photoInput.files[0]);
                 } else {
                     familyData.push(newMember);
                     finalizeRender();
+                    saveToGoogleSheets();
                 }
             }
         });
@@ -439,6 +509,9 @@
         });
 
         window.addEventListener('mouseup', function() {
+            if (isDragging) {
+                saveToGoogleSheets(); // Guardar posiciones al soltar el clic
+            }
             isDragging = false;
             selectedMember = null;
         });
@@ -502,18 +575,11 @@
             targetCtx.restore();
         }
 
-        function drawVectorAvatar(x, y, r) {
-            drawVectorAvatarOnContext(ctx, x, y, r);
-        }
-
-        // MOTOR GENÉRICO DE RENDERIZADO GRÁFICO (Soporta múltiples contextos de dibujo)
         function renderTreeOnContext(targetCtx, targetTheme, dataList, shiftX = 0, shiftY = 0) {
             if (dataList.length === 0) return;
-
             targetCtx.imageSmoothingEnabled = true;
             targetCtx.imageSmoothingQuality = 'high';
 
-            // 1. DIBUJAR VÍNCULOS
             dataList.forEach(m => {
                 const adjX = m.x - shiftX;
                 const adjY = m.y - shiftY;
@@ -523,7 +589,6 @@
                     if (spouse && m.id < spouse.id) {
                         const sAdjX = spouse.x - shiftX;
                         const sAdjY = spouse.y - shiftY;
-
                         targetCtx.beginPath();
                         targetCtx.strokeStyle = targetTheme === themes.minimalista ? "#cbd5e1" : (targetTheme === themes.elegante ? "#a39070" : (targetTheme === themes.moderno ? "#00f5d4" : "#e02424")); 
                         targetCtx.lineWidth = targetTheme.lineWidth + 0.5;
@@ -566,7 +631,6 @@
                 }
             });
 
-            // 2. DIBUJAR TARJETAS DE FAMILIARES
             dataList.forEach(m => {
                 const adjX = m.x - shiftX;
                 const adjY = m.y - shiftY;
@@ -603,16 +667,13 @@
                     drawVectorAvatarOnContext(targetCtx, avatarX, avatarY, radius);
                 }
 
-                const birthFormatted = formatDateString(m.birth);
-                const deathFormatted = formatDateString(m.death);
-
                 targetCtx.fillStyle = targetTheme.textColorName;
                 targetCtx.font = targetTheme.fontName;
                 targetCtx.fillText(m.name, adjX + 54, adjY + 28, cardW - 65);
 
                 targetCtx.fillStyle = targetTheme.textColorDate;
                 targetCtx.font = targetTheme.fontDate;
-                const dateText = m.isAlive ? `Nac: ${birthFormatted}` : `${birthFormatted} - ${deathFormatted}`;
+                const dateText = m.isAlive ? `Nac: ${formatDateString(m.birth)}` : `${formatDateString(m.birth)} - ${formatDateString(m.death)}`;
                 targetCtx.fillText(dateText, adjX + 54, adjY + 45);
 
                 if (targetTheme !== themes.minimalista && targetTheme !== themes.elegante) {
@@ -629,94 +690,57 @@
             renderTreeOnContext(ctx, currentTheme, familyData, 0, 0);
         }
 
-        // --- MOTOR DE EXPORTACIÓN TOTAL Y MULTI-ESTILO ADAPTATIVO ---
         function handleExport(selectElement) {
             const format = selectElement.value;
             if (!format) return;
+            if (familyData.length === 0) { alert("Registra familiares primero."); selectElement.value = ""; return; }
 
-            if (familyData.length === 0) {
-                alert("Por favor, registra al menos un familiar antes de exportar.");
-                selectElement.value = "";
-                return;
-            }
-
-            // 1. Encontrar los extremos ocupados reales del árbol (Bounding Box)
             let minX = virtualWidth, maxX = 0, minY = virtualHeight, maxY = 0;
             familyData.forEach(m => {
-                if (m.x < minX) minX = m.x;
-                if (m.x + cardW > maxX) maxX = m.x + cardW;
-                if (m.y < minY) minY = m.y;
-                if (m.y + cardH > maxY) maxY = m.y + cardH;
+                if (m.x < minX) minX = m.x; if (m.x + cardW > maxX) maxX = m.x + cardW;
+                if (m.y < minY) minY = m.y; if (m.y + cardH > maxY) maxY = m.y + cardH;
             });
 
-            // Añadir márgenes limpios y de cortesía técnica para que no se pegue al papel
             const padding = 60;
-            minX = Math.max(0, minX - padding);
-            minY = Math.max(0, minY - padding);
-            maxX = Math.min(virtualWidth, maxX + padding);
-            maxY = Math.min(virtualHeight, maxY + padding);
+            minX = Math.max(0, minX - padding); minY = Math.max(0, minY - padding);
+            maxX = Math.min(virtualWidth, maxX + padding); maxY = Math.min(virtualHeight, maxY + padding);
+            const cropWidth = maxX - minX; const cropHeight = maxY - minY;
 
-            const cropWidth = maxX - minX;
-            const cropHeight = maxY - minY;
-
-            // 2. Construir Canvas Offscreen de ultra alta densidad adaptado al tema actual
             const exportCanvas = document.createElement('canvas');
-            exportCanvas.width = cropWidth * ratio;
-            exportCanvas.height = cropHeight * ratio;
+            exportCanvas.width = cropWidth * ratio; exportCanvas.height = cropHeight * ratio;
             const exportCtx = exportCanvas.getContext('2d');
             exportCtx.scale(ratio, ratio);
 
-            // CLAVE: Extraer de forma dinámica el fondo sólido del tema que el usuario seleccionó
             exportCtx.fillStyle = currentTheme.bgCanvas;
             exportCtx.fillRect(0, 0, cropWidth, cropHeight);
-
-            // Renderizar la estructura idéntica respetando fuentes, líneas y colores del tema activo
             renderTreeOnContext(exportCtx, currentTheme, familyData, minX, minY);
 
             try {
                 if (format === 'png') {
                     const link = document.createElement('a');
-                    link.download = `arbol_genealogico_estilo_${document.getElementById('themeSelector').value}.png`;
-                    link.href = exportCanvas.toDataURL('image/png');
-                    link.click();
-                } 
-                else if (format === 'jpg') {
+                    link.download = `arbol_genealogico.png`;
+                    link.href = exportCanvas.toDataURL('image/png'); link.click();
+                } else if (format === 'jpg') {
                     const link = document.createElement('a');
-                    link.download = `arbol_genealogico_estilo_${document.getElementById('themeSelector').value}.jpg`;
-                    link.href = exportCanvas.toDataURL('image/jpeg', 0.98);
-                    link.click();
-                } 
-                else if (format === 'pdf') {
+                    link.download = `arbol_genealogico.jpg`;
+                    link.href = exportCanvas.toDataURL('image/jpeg', 0.98); link.click();
+                } else if (format === 'pdf') {
                     const { jsPDF } = window.jspdf;
-                    
-                    // Conversión exacta mm físicos (1 píxel = 0.264583mm)
                     const mmWidth = Math.round(cropWidth * 0.264583);
                     const mmHeight = Math.round(cropHeight * 0.264583);
-                    
-                    // ORIENTACIÓN ADAPTATIVA AUTOMÁTICA: Detecta si tu árbol es horizontal o vertical
                     const orientation = mmWidth > mmHeight ? 'l' : 'p';
-                    
-                    const pdf = new jsPDF({
-                        orientation: orientation,
-                        unit: 'mm',
-                        format: [mmWidth, mmHeight]
-                    });
-
-                    // Inserción plana de alta resolución 1:1 en el documento sin bandas negras
-                    const imgData = exportCanvas.toDataURL('image/jpeg', 1.0);
-                    pdf.addImage(imgData, 'JPEG', 0, 0, mmWidth, mmHeight);
-                    pdf.save(`arbol_genealogico_impresion.pdf`);
+                    const pdf = new jsPDF({ orientation: orientation, unit: 'mm', format: [mmWidth, mmHeight] });
+                    pdf.addImage(exportCanvas.toDataURL('image/jpeg', 1.0), 'JPEG', 0, 0, mmWidth, mmHeight);
+                    pdf.save(`arbol_genealogico.pdf`);
                 }
-            } catch (error) {
-                console.error("Error en la exportación:", error);
-                alert("Ocurrió un inconveniente al empaquetar el documento de impresión.");
-            }
-
-            // Resetear el control desplegable de selección
+            } catch (e) { console.error(e); }
             selectElement.value = "";
         }
 
         canvas.style.backgroundColor = currentTheme.bgCanvas;
+        
+        // INICIALIZACIÓN AUTOMÁTICA AL CARGAR LA PÁGINA
+        window.addEventListener("DOMContentLoaded", loadFromGoogleSheets);
     </script>
 </body>
 </html>
