@@ -552,11 +552,30 @@
         });
 
         function formatDateString(dateStr) {
-            if (!dateStr) return "????";
-            const parts = dateStr.split("-");
-            if (parts.length !== 3) return dateStr;
-            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            if (!dateStr || dateStr === "null" || dateStr === "????") return "????";
+    
+    // Si Google Sheets envía el formato largo (Ej: "Fri Jun 16 1989 00:00:00 GMT...")
+    if (dateStr.includes(" ") && (dateStr.includes("GMT") || dateStr.includes("00:00"))) {
+        const d = new Date(dateStr);
+        // Validar que sea una fecha correcta antes de formatear
+        if (!isNaN(d.getTime())) {
+            // El formato de meses y días requiere sumar 1 al mes ya que inicia en 0
+            const dia = String(d.getDate()).padStart(2, '0');
+            const mes = String(d.getMonth() + 1).padStart(2, '0');
+            const anio = d.getFullYear();
+            return `${dia}/${mes}/${anio}`;
         }
+    }
+
+    // Si viene en el formato limpio estándar (AAAA-MM-DD)
+    const parts = dateStr.split("-");
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    
+    // Retornar el valor original si ya está formateado o limpio
+    return dateStr;
+}
 
         function drawVectorAvatarOnContext(targetCtx, x, y, r) {
             targetCtx.save();
