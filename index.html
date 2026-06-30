@@ -485,134 +485,151 @@
             return `${parts[2]}/${parts[1]}/${parts[0]}`;
         }
 
-        function drawVectorAvatar(x, y, r) {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(x, y, r, 0, Math.PI * 2);
-            ctx.clip();
-            ctx.fillStyle = "#e2e8f0";
-            ctx.fillRect(x - r, y - r, r * 2, r * 2);
-            ctx.beginPath();
-            ctx.fillStyle = "#94a3b8";
-            ctx.arc(x, y - 2, r * 0.45, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(x, y + r + 2, r * 0.8, 0, Math.PI, true);
-            ctx.fill();
-            ctx.restore();
+        function drawVectorAvatarOnContext(targetCtx, x, y, r) {
+            targetCtx.save();
+            targetCtx.beginPath();
+            targetCtx.arc(x, y, r, 0, Math.PI * 2);
+            targetCtx.clip();
+            targetCtx.fillStyle = "#e2e8f0";
+            targetCtx.fillRect(x - r, y - r, r * 2, r * 2);
+            targetCtx.beginPath();
+            targetCtx.fillStyle = "#94a3b8";
+            targetCtx.arc(x, y - 2, r * 0.45, 0, Math.PI * 2);
+            targetCtx.fill();
+            targetCtx.beginPath();
+            targetCtx.arc(x, y + r + 2, r * 0.8, 0, Math.PI, true);
+            targetCtx.fill();
+            targetCtx.restore();
         }
 
-        // MOTOR DE RENDERIZADO
-        function drawTree() {
-            ctx.clearRect(0, 0, virtualWidth, virtualHeight);
-            if (familyData.length === 0) return;
+        function drawVectorAvatar(x, y, r) {
+            drawVectorAvatarOnContext(ctx, x, y, r);
+        }
 
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
+        // MOTOR GENÉRICO DE RENDERIZADO (Compatible con cualquier Contexto 2D)
+        function renderTreeOnContext(targetCtx, targetTheme, dataList, shiftX = 0, shiftY = 0) {
+            if (dataList.length === 0) return;
 
-            // 1. LÍNEAS
-            familyData.forEach(m => {
+            targetCtx.imageSmoothingEnabled = true;
+            targetCtx.imageSmoothingQuality = 'high';
+
+            // 1. DIBUJAR LÍNEAS
+            dataList.forEach(m => {
+                const adjX = m.x - shiftX;
+                const adjY = m.y - shiftY;
+
                 if (m.spouseId) {
-                    const spouse = familyData.find(s => s.id === m.spouseId);
+                    const spouse = dataList.find(s => s.id === m.spouseId);
                     if (spouse && m.id < spouse.id) {
-                        ctx.beginPath();
-                        ctx.strokeStyle = currentTheme === themes.minimalista ? "#cbd5e1" : (currentTheme === themes.elegante ? "#a39070" : "#e02424"); 
-                        ctx.lineWidth = currentTheme.lineWidth + 0.5;
-                        ctx.setLineDash(currentTheme === themes.minimalista ? [] : [3, 3]);
-                        ctx.moveTo(m.x + cardW, m.y + cardH / 2);
-                        ctx.lineTo(spouse.x, spouse.y + cardH / 2);
-                        ctx.stroke();
-                        ctx.setLineDash([]);
+                        const sAdjX = spouse.x - shiftX;
+                        const sAdjY = spouse.y - shiftY;
+
+                        targetCtx.beginPath();
+                        targetCtx.strokeStyle = targetTheme === themes.minimalista ? "#cbd5e1" : (targetTheme === themes.elegante ? "#a39070" : "#e02424"); 
+                        targetCtx.lineWidth = targetTheme.lineWidth + 0.5;
+                        targetCtx.setLineDash(targetTheme === themes.minimalista ? [] : [3, 3]);
+                        targetCtx.moveTo(adjX + cardW, adjY + cardH / 2);
+                        targetCtx.lineTo(sAdjX, sAdjY + cardH / 2);
+                        targetCtx.stroke();
+                        targetCtx.setLineDash([]);
                     }
                 }
 
                 if (m.parents && m.parents.length > 0) {
-                    ctx.beginPath();
-                    ctx.strokeStyle = currentTheme.lineColor;
-                    ctx.lineWidth = currentTheme.lineWidth;
-                    ctx.setLineDash(currentTheme.lineDash);
+                    targetCtx.beginPath();
+                    targetCtx.strokeStyle = targetTheme.lineColor;
+                    targetCtx.lineWidth = targetTheme.lineWidth;
+                    targetCtx.setLineDash(targetTheme.lineDash);
 
                     if (m.parents.length >= 2) {
-                        const p1 = familyData.find(p => p.id === m.parents[0]);
-                        const p2 = familyData.find(p => p.id === m.parents[1]);
+                        const p1 = dataList.find(p => p.id === m.parents[0]);
+                        const p2 = dataList.find(p => p.id === m.parents[1]);
                         if (p1 && p2) {
-                            let midX = (p1.x + p2.x + cardW) / 2;
-                            let midY = (p1.y + p2.y + cardH) / 2;
-                            ctx.moveTo(midX, midY);
-                            ctx.lineTo(midX, m.y - 15);
-                            ctx.lineTo(m.x + cardW / 2, m.y - 15);
-                            ctx.lineTo(m.x + cardW / 2, m.y);
+                            let midX = ((p1.x - shiftX) + (p2.x - shiftX) + cardW) / 2;
+                            let midY = ((p1.y - shiftY) + (p2.y - shiftY) + cardH) / 2;
+                            targetCtx.moveTo(midX, midY);
+                            targetCtx.lineTo(midX, adjY - 15);
+                            targetCtx.lineTo(adjX + cardW / 2, adjY - 15);
+                            targetCtx.lineTo(adjX + cardW / 2, adjY);
                         }
                     } else {
-                        const parent = familyData.find(p => p.id === m.parents[0]);
+                        const parent = dataList.find(p => p.id === m.parents[0]);
                         if (parent) {
-                            ctx.moveTo(parent.x + cardW / 2, parent.y + cardH);
-                            ctx.lineTo(parent.x + cardW / 2, m.y - 15);
-                            ctx.lineTo(m.x + cardW / 2, m.y - 15);
-                            ctx.lineTo(m.x + cardW / 2, m.y);
+                            targetCtx.moveTo((parent.x - shiftX) + cardW / 2, (parent.y - shiftY) + cardH);
+                            targetCtx.lineTo((parent.x - shiftX) + cardW / 2, adjY - 15);
+                            targetCtx.lineTo(adjX + cardW / 2, adjY - 15);
+                            targetCtx.lineTo(adjX + cardW / 2, adjY);
                         }
                     }
-                    ctx.stroke();
-                    ctx.setLineDash([]);
+                    targetCtx.stroke();
+                    targetCtx.setLineDash([]);
                 }
             });
 
-            // 2. TARJETAS
-            familyData.forEach(m => {
-                ctx.fillStyle = currentTheme.cardBg;
-                ctx.shadowColor = currentTheme.shadowColor;
-                ctx.shadowBlur = currentTheme.shadowBlur;
-                ctx.shadowOffsetY = currentTheme.shadowBlur > 0 ? 3 : 0;
-                ctx.strokeStyle = m.isAlive ? currentTheme.cardBorderAlive : currentTheme.cardBorderDead;
-                ctx.lineWidth = currentTheme === themes.minimalista ? 0.1 : 1.8;
+            // 2. DIBUJAR TARJETAS
+            dataList.forEach(m => {
+                const adjX = m.x - shiftX;
+                const adjY = m.y - shiftY;
+
+                targetCtx.fillStyle = targetTheme.cardBg;
+                targetCtx.shadowColor = targetTheme.shadowColor;
+                targetCtx.shadowBlur = targetTheme.shadowBlur;
+                targetCtx.shadowOffsetY = targetTheme.shadowBlur > 0 ? 3 : 0;
+                targetCtx.strokeStyle = m.isAlive ? targetTheme.cardBorderAlive : targetTheme.cardBorderDead;
+                targetCtx.lineWidth = targetTheme === themes.minimalista ? 0.1 : 1.8;
                 
-                ctx.beginPath();
-                ctx.roundRect(m.x, m.y, cardW, cardH, currentTheme.cardRadius);
-                ctx.fill();
-                if(currentTheme !== themes.minimalista || !m.isAlive) {
-                    ctx.stroke();
+                targetCtx.beginPath();
+                targetCtx.roundRect(adjX, adjY, cardW, cardH, targetTheme.cardRadius);
+                targetCtx.fill();
+                if(targetTheme !== themes.minimalista || !m.isAlive) {
+                    targetCtx.stroke();
                 }
                 
-                ctx.shadowBlur = 0; 
-                ctx.shadowOffsetY = 0;
+                targetCtx.shadowBlur = 0; 
+                targetCtx.shadowOffsetY = 0;
 
                 let radius = 18; 
-                let avatarX = m.x + 12 + radius;
-                let avatarY = m.y + (cardH / 2);
+                let avatarX = adjX + 12 + radius;
+                let avatarY = adjY + (cardH / 2);
 
                 if (m.imgObj) {
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.arc(avatarX, avatarY, radius, 0, Math.PI * 2);
-                    ctx.clip();
-                    ctx.drawImage(m.imgObj, m.x + 12, m.y + (cardH / 2) - radius, radius * 2, radius * 2);
-                    ctx.restore();
+                    targetCtx.save();
+                    targetCtx.beginPath();
+                    targetCtx.arc(avatarX, avatarY, radius, 0, Math.PI * 2);
+                    targetCtx.clip();
+                    targetCtx.drawImage(m.imgObj, adjX + 12, adjY + (cardH / 2) - radius, radius * 2, radius * 2);
+                    targetCtx.restore();
                 } else {
-                    drawVectorAvatar(avatarX, avatarY, radius);
+                    drawVectorAvatarOnContext(targetCtx, avatarX, avatarY, radius);
                 }
 
                 const birthFormatted = formatDateString(m.birth);
                 const deathFormatted = formatDateString(m.death);
 
-                ctx.fillStyle = currentTheme.textColorName;
-                ctx.font = currentTheme.fontName;
-                ctx.fillText(m.name, m.x + 54, m.y + 28, cardW - 65);
+                targetCtx.fillStyle = targetTheme.textColorName;
+                targetCtx.font = targetTheme.fontName;
+                targetCtx.fillText(m.name, adjX + 54, adjY + 28, cardW - 65);
 
-                ctx.fillStyle = currentTheme.textColorDate;
-                ctx.font = currentTheme.fontDate;
+                targetCtx.fillStyle = targetTheme.textColorDate;
+                targetCtx.font = targetTheme.fontDate;
                 const dateText = m.isAlive ? `Nac: ${birthFormatted}` : `${birthFormatted} - ${deathFormatted}`;
-                ctx.fillText(dateText, m.x + 54, m.y + 45);
+                targetCtx.fillText(dateText, adjX + 54, adjY + 45);
 
-                if (currentTheme !== themes.minimalista && currentTheme !== themes.elegante) {
-                    ctx.beginPath();
-                    ctx.fillStyle = m.isAlive ? "#27ae60" : "#7f8c8d";
-                    ctx.arc(m.x + cardW - 10, m.y + 10, 3, 0, Math.PI * 2);
-                    ctx.fill();
+                if (targetTheme !== themes.minimalista && targetTheme !== themes.elegante) {
+                    targetCtx.beginPath();
+                    targetCtx.fillStyle = m.isAlive ? "#27ae60" : "#7f8c8d";
+                    targetCtx.arc(adjX + cardW - 10, adjY + 10, 3, 0, Math.PI * 2);
+                    targetCtx.fill();
                 }
             });
         }
 
-        // --- SISTEMA DE EXPORTACIÓN FORMATEADO PARA IMPRENTA REAL ---
+        function drawTree() {
+            ctx.clearRect(0, 0, virtualWidth, virtualHeight);
+            renderTreeOnContext(ctx, currentTheme, familyData, 0, 0);
+        }
+
+        // --- SISTEMA AVANZADO DE EXPORTACIÓN (RESOLUCIÓN ULTRA-HD E IMPRESIÓN ADAPTATIVA) ---
         function handleExport(selectElement) {
             const format = selectElement.value;
             if (!format) return;
@@ -623,14 +640,7 @@
                 return;
             }
 
-            // Guardar el tema que el usuario tenía activo originalmente
-            const originalTheme = currentTheme;
-
-            // FORZAR EL ESTILO ELEGANTE PARA GARANTIZAR AHORRO DE TINTA Y ALTA RESOLUCIÓN EN IMPRESIÓN
-            currentTheme = themes.elegante;
-            drawTree(); // Redibuja con el fondo marfil/blanco y marcos de oro viejo
-
-            // 1. Encontrar el encuadre perfecto de las tarjetas (Bounding Box)
+            // 1. Calcular el Bounding Box (Límites exactos de ocupación del árbol)
             let minX = virtualWidth, maxX = 0, minY = virtualHeight, maxY = 0;
             familyData.forEach(m => {
                 if (m.x < minX) minX = m.x;
@@ -639,8 +649,8 @@
                 if (m.y + cardH > maxY) maxY = m.y + cardH;
             });
 
-            // Márgenes de cortesía técnica para que no se corte al refilar el papel
-            const padding = 60; 
+            // Margen de cortesía perimetral limpio (60px)
+            const padding = 60;
             minX = Math.max(0, minX - padding);
             minY = Math.max(0, minY - padding);
             maxX = Math.min(virtualWidth, maxX + padding);
@@ -649,46 +659,43 @@
             const cropWidth = maxX - minX;
             const cropHeight = maxY - minY;
 
-            // 2. Clonar fragmento en un lienzo de exportación Ultra HD
+            // 2. Crear un Canvas Offscreen dedicado exclusivamente a la exportación
             const exportCanvas = document.createElement('canvas');
             exportCanvas.width = cropWidth * ratio;
             exportCanvas.height = cropHeight * ratio;
             const exportCtx = exportCanvas.getContext('2d');
+            exportCtx.scale(ratio, ratio);
 
-            exportCtx.drawImage(
-                canvas, 
-                minX * ratio, minY * ratio, cropWidth * ratio, cropHeight * ratio, 
-                0, 0, cropWidth * ratio, cropHeight * ratio
-            );
+            // Forzar fondo blanco plano para evitar transparencias rotas y ahorrar tinta en imprenta
+            exportCtx.fillStyle = "#ffffff";
+            exportCtx.fillRect(0, 0, cropWidth, cropHeight);
 
-            // 3. Procesamiento físico del archivo según el formato
+            // Renderizar la jerarquía familiar directamente sobre el lienzo limpio de exportación con el estilo premium
+            renderTreeOnContext(exportCtx, themes.elegante, familyData, minX, minY);
+
             try {
-                if (format === 'png' || format === 'jpg') {
-                    const finalCanvas = document.createElement('canvas');
-                    finalCanvas.width = exportCanvas.width;
-                    finalCanvas.height = exportCanvas.height;
-                    const finalCtx = finalCanvas.getContext('2d');
-                    
-                    // Asegurar fondo marfil premium plano libre de transparencias para plotters
-                    finalCtx.fillStyle = themes.elegante.bgCanvas;
-                    finalCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
-                    finalCtx.drawImage(exportCanvas, 0, 0);
-
+                if (format === 'png') {
                     const link = document.createElement('a');
-                    link.download = `arbol_genealógico_premium.${format}`;
-                    link.href = finalCanvas.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', 0.98);
+                    link.download = 'arbol_genealogico_premium.png';
+                    link.href = exportCanvas.toDataURL('image/png');
+                    link.click();
+                } 
+                else if (format === 'jpg') {
+                    const link = document.createElement('a');
+                    link.download = 'arbol_genealogico_premium.jpg';
+                    link.href = exportCanvas.toDataURL('image/jpeg', 0.98);
                     link.click();
                 } 
                 else if (format === 'pdf') {
                     const { jsPDF } = window.jspdf;
                     
-                    // Cálculo de Conversión de Píxeles de Pantalla a Milímetros Físicos (Estándar Imprenta 300 DPI aprox.)
+                    // Conversión exacta a dimensiones físicas reales (1px = 0.264583mm)
                     const mmWidth = Math.round(cropWidth * 0.264583);
                     const mmHeight = Math.round(cropHeight * 0.264583);
                     
+                    // ORIENTACIÓN INTELIGENTE AUTOMÁTICA basándose en la estructura geométrica real
                     const orientation = mmWidth > mmHeight ? 'l' : 'p';
                     
-                    // Crear el PDF con medidas milimétricas exactas listas para impresión de cualquier escala
                     const pdf = new jsPDF({
                         orientation: orientation,
                         unit: 'mm',
@@ -696,19 +703,13 @@
                     });
 
                     const imgData = exportCanvas.toDataURL('image/jpeg', 1.0);
-                    
-                    // Inserción en escala exacta 1:1 milimétrica sin compresión disruptiva
                     pdf.addImage(imgData, 'JPEG', 0, 0, mmWidth, mmHeight);
                     pdf.save('arbol_genealogico_impresion.pdf');
                 }
             } catch (error) {
-                console.error(error);
-                alert("Ocurrió un inconveniente al generar la estructura del documento de impresión.");
+                console.error("Error crítico durante la exportación:", error);
+                alert("Ocurrió un error inesperado al empaquetar el archivo gráfico de impresión.");
             }
-
-            // RESTAURAR EL ESTILO VISUAL DE LA PANTALLA que tenía el usuario al inicio
-            currentTheme = originalTheme;
-            drawTree();
 
             // Limpiar selector
             selectElement.value = "";
