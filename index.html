@@ -109,7 +109,7 @@
             cursor: pointer;
         }
 
-        /* Indicador visual de estado de sincronización con la nube */
+        /* Indicador de sincronización remota */
         .cloud-status {
             font-size: 0.8rem;
             font-weight: bold;
@@ -220,9 +220,7 @@
     </div>
 
     <script>
-        // ==========================================
-        // CONFIGURACIÓN: PEGA TU URL DE GOOGLE APPS SCRIPT AQUÍ ABAJO
-        // ==========================================
+        // URL de tu implementación real de Google Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyaQroG-d468UiedqyVoUMQulda5LlykZHKfUp9s-pVL_sVVgo9GhAOA25ftjvtvGX7/exec";
 
         let familyData = [];
@@ -281,12 +279,8 @@
         let offsetX = 0;
         let offsetY = 0;
 
-        // FUNCIONES DE CARGA Y GUARDADO DESDE GOOGLE SHEETS
+        // CARGAR DESDE LA NUBE
         async function loadFromGoogleSheets() {
-            if (WEB_APP_URL.includes("AQUI_PEGA_TU_URL")) {
-                updateSyncStatus("⚠️ Falta configurar URL de Sheets", "#fee2e2", "#991b1b");
-                return;
-            }
             try {
                 const response = await fetch(WEB_APP_URL);
                 const data = await response.json();
@@ -295,36 +289,48 @@
                     updateSyncStatus("✅ Sincronizado con Google Sheets", "#dcfce7", "#166534");
                     finalizeRender();
                 } else {
-                    updateSyncStatus("⚠️ Error al interpretar la base de datos", "#fee2e2", "#991b1b");
+                    updateSyncStatus("⚠️ Archivo de origen vacío o incorrecto", "#fef3c7", "#d97706");
                 }
             } catch (error) {
                 console.error(error);
-                updateSyncStatus("❌ Error de conexión al leer datos", "#fee2e2", "#991b1b");
+                updateSyncStatus("❌ Error de comunicación con la base de datos", "#fee2e2", "#991b1b");
             }
         }
 
+        // GUARDAR AUTOMÁTICAMENTE EN LA NUBE
         async function saveToGoogleSheets() {
-            if (WEB_APP_URL.includes("https://script.google.com/macros/s/AKfycbyaQroG-d468UiedqyVoUMQulda5LlykZHKfUp9s-pVL_sVVgo9GhAOA25ftjvtvGX7/exec")) return;
-            updateSyncStatus("🔄 Subiendo cambios a la nube...", "#fef3c7", "#d97706");
+            updateSyncStatus("🔄 Guardando en Google Sheets...", "#fef3c7", "#d97706");
+            
+            // Sanitizar fechas antes del envío para evitar corrupción horaria local
+            const cleanedData = familyData.map(m => {
+                return {
+                    ...m,
+                    birth: m.birth ? String(m.birth).split(' ')[0].split('T')[0] : "",
+                    death: m.death ? String(m.death).split(' ')[0].split('T')[0] : null
+                };
+            });
+
             try {
-                const response = await fetch(WEB_APP_URL, {
+                await fetch(WEB_APP_URL, {
                     method: "POST",
-                    mode: "no-cors", // Evita bloqueos CORS del navegador locales
+                    mode: "no-cors", 
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ action: "saveAll", data: familyData })
+                    body: JSON.stringify({ action: "saveAll", data: cleanedData })
                 });
                 updateSyncStatus("✅ Cambios guardados en la nube", "#dcfce7", "#166534");
             } catch (error) {
                 console.error(error);
-                updateSyncStatus("❌ Fallo el guardado automático remoto", "#fee2e2", "#991b1b");
+                updateSyncStatus("❌ Error al guardar datos en red", "#fee2e2", "#991b1b");
             }
         }
 
         function updateSyncStatus(text, bg, color) {
             const el = document.getElementById("syncStatus");
-            el.textContent = text;
-            el.style.backgroundColor = bg;
-            el.style.color = color;
+            if (el) {
+                el.textContent = text;
+                el.style.backgroundColor = bg;
+                el.style.color = color;
+            }
         }
 
         function changeTreeTheme() {
@@ -356,6 +362,7 @@
 
         function refreshSelectors() {
             const sourceSelect = document.getElementById('sourceSelect');
+            if(!sourceSelect) return;
             sourceSelect.innerHTML = '';
             familyData.forEach(m => {
                 const opt = document.createElement('option');
@@ -380,13 +387,17 @@
                 source.spouseId = targetId;
                 target.spouseId = sourceId;
             } else if (role === 'es_hijo') {
-                if (!target.parents.includes(sourceId)) target.parents.push(sourceId);
+                if (!target.parents.includes(sourceId)) {
+                    target.parents.push(sourceId);
+                }
             } else if (role === 'es_padre') {
-                if (!source.parents.includes(targetId)) source.parents.push(targetId);
+                if (!source.parents.includes(targetId)) {
+                    source.parents.push(targetId);
+                }
             }
 
             drawTree();
-            saveToGoogleSheets(); // Guardar relación
+            saveToGoogleSheets(); 
         }
 
         document.getElementById('treeForm').addEventListener('submit', function(e) {
@@ -479,7 +490,7 @@
             toggleDeathField();
         }
 
-        // CONTROL DRAG & DROP
+        // GESTIÓN DRAG AND DROP
         canvas.addEventListener('mousedown', function(e) {
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left + document.getElementById('canvasContainer').scrollLeft;
@@ -510,7 +521,7 @@
 
         window.addEventListener('mouseup', function() {
             if (isDragging) {
-                saveToGoogleSheets(); // Guardar posiciones al soltar el clic
+                saveToGoogleSheets(); 
             }
             isDragging = false;
             selectedMember = null;
@@ -531,12 +542,12 @@
                     document.getElementById('editingMemberId').value = m.id;
                     document.getElementById('names').value = first;
                     document.getElementById('lastNames').value = last;
-                    document.getElementById('birthDate').value = m.birth;
+                    document.getElementById('birthDate').value = m.birth ? m.birth.split(' ')[0].split('T')[0] : "";
                     document.getElementById('isAlive').checked = m.isAlive;
                     
                     if(!m.isAlive) {
                         document.getElementById('deathGroup').classList.remove('hidden');
-                        document.getElementById('deathDate').value = m.death;
+                        document.getElementById('deathDate').value = m.death ? m.death.split(' ')[0].split('T')[0] : "";
                     } else {
                         document.getElementById('deathGroup').classList.add('hidden');
                     }
@@ -551,31 +562,27 @@
             }
         });
 
+        // FORMATEADOR SANITIZADO DE FECHAS DE NACIMIENTO/FALLECIMIENTO
         function formatDateString(dateStr) {
             if (!dateStr || dateStr === "null" || dateStr === "????") return "????";
-    
-    // Si Google Sheets envía el formato largo (Ej: "Fri Jun 16 1989 00:00:00 GMT...")
-    if (dateStr.includes(" ") && (dateStr.includes("GMT") || dateStr.includes("00:00"))) {
-        const d = new Date(dateStr);
-        // Validar que sea una fecha correcta antes de formatear
-        if (!isNaN(d.getTime())) {
-            // El formato de meses y días requiere sumar 1 al mes ya que inicia en 0
-            const dia = String(d.getDate()).padStart(2, '0');
-            const mes = String(d.getMonth() + 1).padStart(2, '0');
-            const anio = d.getFullYear();
-            return `${dia}/${mes}/${anio}`;
-        }
-    }
+            
+            if (dateStr.includes(" ") && (dateStr.includes("GMT") || dateStr.includes("00:00"))) {
+                const d = new Date(dateStr);
+                if (!isNaN(d.getTime())) {
+                    const dia = String(d.getDate()).padStart(2, '0');
+                    const mes = String(d.getMonth() + 1).padStart(2, '0');
+                    const anio = d.getFullYear();
+                    return `${dia}/${mes}/${anio}`;
+                }
+            }
 
-    // Si viene en el formato limpio estándar (AAAA-MM-DD)
-    const parts = dateStr.split("-");
-    if (parts.length === 3) {
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-    
-    // Retornar el valor original si ya está formateado o limpio
-    return dateStr;
-}
+            const parts = dateStr.split(' ')[0].split('T')[0].split("-");
+            if (parts.length === 3) {
+                return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+            
+            return dateStr;
+        }
 
         function drawVectorAvatarOnContext(targetCtx, x, y, r) {
             targetCtx.save();
@@ -758,7 +765,7 @@
 
         canvas.style.backgroundColor = currentTheme.bgCanvas;
         
-        // INICIALIZACIÓN AUTOMÁTICA AL CARGAR LA PÁGINA
+        // EJECUCIÓN INICIAL AUTOMÁTICA
         window.addEventListener("DOMContentLoaded", loadFromGoogleSheets);
     </script>
 </body>
