@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Árbol Genealógico Interactivo de Alta Densidad</title>
+    <title>Árbol Genealógico Avanzado de Alta Densidad</title>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -13,6 +13,7 @@
             --bg-color: #f1f5f9;
             --card-bg: #ffffff;
             --action-color: #8e44ad;
+            --edit-color: #e67e22;
         }
 
         body {
@@ -45,6 +46,7 @@
             font-size: 1.15rem;
             border-bottom: 2px solid var(--secondary-color);
             padding-bottom: 6px;
+            transition: color 0.3s, border-color 0.3s;
         }
 
         .form-group { margin-bottom: 10px; }
@@ -54,16 +56,18 @@
         .checkbox-group input { width: auto; }
         .hidden { display: none; }
 
-        button { width: 100%; padding: 8px; color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button { width: 100%; padding: 8px; color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: background 0.2s; margin-top: 5px; }
         .btn-submit { background-color: var(--secondary-color); }
         .btn-submit:hover { background-color: #2980b9; }
+        .btn-cancel { background-color: #94a3b8; }
+        .btn-cancel:hover { background-color: #64748b; }
 
         .canvas-section {
             position: relative;
             background: #ffffff;
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.06);
-            overflow: auto; /* Scroll bidimensional para navegación infinita */
+            overflow: auto;
             cursor: grab;
         }
         .canvas-section:active { cursor: grabbing; }
@@ -89,12 +93,13 @@
     <div class="container">
         <section class="form-section">
             <div class="instructions">
-                Ajusta la distribución arrastrando las tarjetas. Desplázate por el contenedor derecho si necesitas más espacio de dibujo.
+                Arrastra tarjetas para moverlas. <strong>Haz doble clic sobre cualquier tarjeta</strong> en el lienzo para editar sus datos.
             </div>
 
             <div id="crudBlock">
-                <h2>1. Registrar Familiar</h2>
+                <h2 id="formTitle">1. Registrar Familiar</h2>
                 <form id="treeForm">
+                    <input type="hidden" id="editingMemberId" value="">
                     <div class="form-group">
                         <label for="names">Nombres:</label>
                         <input type="text" id="names" required placeholder="Nombres">
@@ -119,7 +124,8 @@
                         <label for="photo">Foto (Opcional):</label>
                         <input type="file" id="photo" accept="image/*">
                     </div>
-                    <button type="submit" class="btn-submit">Guardar Persona</button>
+                    <button type="submit" class="btn-submit" id="btnSubmit">Guardar Persona</button>
+                    <button type="button" class="btn-cancel hidden" id="btnCancel" onclick="resetForm()">Cancelar Edición</button>
                 </form>
             </div>
 
@@ -155,7 +161,6 @@
         const canvas = document.getElementById('treeCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Dimensiones compactas optimizadas para alta densidad
         const cardW = 180;
         const cardH = 70;
 
@@ -223,6 +228,7 @@
 
         document.getElementById('treeForm').addEventListener('submit', function(e) {
             e.preventDefault();
+            const editingId = document.getElementById('editingMemberId').value;
             const names = document.getElementById('names').value;
             const lastNames = document.getElementById('lastNames').value;
             const birthYear = document.getElementById('birthYear').value;
@@ -230,46 +236,82 @@
             const deathYear = document.getElementById('deathYear').value;
             const photoInput = document.getElementById('photo');
 
-            // Posicionamiento de entrada compacto
-            const spawnX = 300 + (familyData.length * 25) % 250;
-            const spawnY = 150 + (familyData.length * 30) % 150;
+            if (editingId) {
+                // MODO EDICIÓN: Buscar el nodo existente y actualizar propiedades reteniendo coordenadas y conexiones
+                const member = familyData.find(m => m.id === editingId);
+                if (member) {
+                    member.name = `${names} ${lastNames}`;
+                    member.birth = birthYear;
+                    member.isAlive = isAlive;
+                    member.death = isAlive ? null : deathYear;
 
-            const newMember = {
-                id: 'mem_' + Date.now(),
-                name: `${names} ${lastNames}`,
-                birth: birthYear,
-                isAlive: isAlive,
-                death: isAlive ? null : deathYear,
-                parents: [],
-                spouseId: null,
-                x: spawnX,
-                y: spawnY,
-                imgObj: defaultImg 
-            };
-
-            if (photoInput.files && photoInput.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const customImg = new Image();
-                    customImg.src = event.target.result;
-                    customImg.onload = function() {
-                        newMember.imgObj = customImg;
-                        familyData.push(newMember);
+                    if (photoInput.files && photoInput.files[0]) {
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const customImg = new Image();
+                            customImg.src = event.target.result;
+                            customImg.onload = function() {
+                                member.imgObj = customImg;
+                                finalizeRender();
+                            };
+                        };
+                        reader.readAsDataURL(photoInput.files[0]);
+                    } else {
                         finalizeRender();
-                    };
-                };
-                reader.readAsDataURL(photoInput.files[0]);
+                    }
+                }
             } else {
-                familyData.push(newMember);
-                finalizeRender();
+                // MODO CREACIÓN
+                const spawnX = 300 + (familyData.length * 25) % 250;
+                const spawnY = 150 + (familyData.length * 30) % 150;
+
+                const newMember = {
+                    id: 'mem_' + Date.now(),
+                    name: `${names} ${lastNames}`,
+                    birth: birthYear,
+                    isAlive: isAlive,
+                    death: isAlive ? null : deathYear,
+                    parents: [],
+                    spouseId: null,
+                    x: spawnX,
+                    y: spawnY,
+                    imgObj: defaultImg 
+                };
+
+                if (photoInput.files && photoInput.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const customImg = new Image();
+                        customImg.src = event.target.result;
+                        customImg.onload = function() {
+                            newMember.imgObj = customImg;
+                            familyData.push(newMember);
+                            finalizeRender();
+                        };
+                    };
+                    reader.readAsDataURL(photoInput.files[0]);
+                } else {
+                    familyData.push(newMember);
+                    finalizeRender();
+                }
             }
         });
 
         function finalizeRender() {
-            document.getElementById('treeForm').reset();
-            toggleDeathField();
+            resetForm();
             refreshSelectors();
             drawTree();
+        }
+
+        function resetForm() {
+            document.getElementById('treeForm').reset();
+            document.getElementById('editingMemberId').value = "";
+            document.getElementById('formTitle').textContent = "1. Registrar Familiar";
+            document.getElementById('formTitle').style.color = "";
+            document.getElementById('btnSubmit').textContent = "Guardar Persona";
+            document.getElementById('btnSubmit').style.backgroundColor = "";
+            document.getElementById('btnCancel').classList.add('hidden');
+            toggleDeathField();
         }
 
         // CONTROL DRAG & DROP
@@ -307,7 +349,46 @@
             selectedMember = null;
         });
 
-        // MOTOR DE RENDERIZADO COMPACTO
+        // DETECTOR DE DOBLE CLIC PARA CARGAR EL CRUD DE EDICIÓN
+        canvas.addEventListener('dblclick', function(e) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left + document.getElementById('canvasContainer').scrollLeft;
+            const mouseY = e.clientY - rect.top + document.getElementById('canvasContainer').scrollTop;
+
+            for (let i = familyData.length - 1; i >= 0; i--) {
+                const m = familyData[i];
+                if (mouseX >= m.x && mouseX <= m.x + cardW && mouseY >= m.y && mouseY <= m.y + cardH) {
+                    // Segmentar nombres y apellidos aproximados para el formulario
+                    const nameParts = m.name.split(" ");
+                    const first = nameParts[0] || "";
+                    const last = nameParts.slice(1).join(" ") || "";
+
+                    // Inyectar datos en el formulario izquierdo
+                    document.getElementById('editingMemberId').value = m.id;
+                    document.getElementById('names').value = first;
+                    document.getElementById('lastNames').value = last;
+                    document.getElementById('birthYear').value = m.birth;
+                    document.getElementById('isAlive').checked = m.isAlive;
+                    
+                    if(!m.isAlive) {
+                        document.getElementById('deathGroup').classList.remove('hidden');
+                        document.getElementById('deathYear').value = m.death;
+                    } else {
+                        document.getElementById('deathGroup').classList.add('hidden');
+                    }
+
+                    // Cambiar estados visuales de la interfaz en modo Edición
+                    document.getElementById('formTitle').textContent = "✏️ Editando Familiar";
+                    document.getElementById('formTitle').style.color = "var(--edit-color)";
+                    document.getElementById('btnSubmit').textContent = "Actualizar Datos";
+                    document.getElementById('btnSubmit').style.backgroundColor = "var(--edit-color)";
+                    document.getElementById('btnCancel').classList.remove('hidden');
+                    break;
+                }
+            }
+        });
+
+        // MOTOR DE RENDERIZADO
         function drawTree() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (familyData.length === 0) return;
@@ -381,7 +462,7 @@
                 // Mini Retrato Circular
                 ctx.save();
                 ctx.beginPath();
-                let radius = 18; // Más pequeño y balanceado
+                let radius = 18; 
                 let avatarX = m.x + 12 + radius;
                 let avatarY = m.y + (cardH / 2);
                 ctx.arc(avatarX, avatarY, radius, 0, Math.PI * 2);
