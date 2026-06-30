@@ -215,8 +215,8 @@
                 death: isAlive ? null : deathYear,
                 parents: [],
                 spouseId: null,
-                x: 600, // Coordenadas base centrales por defecto
-                y: 350,
+                x: 0,
+                y: 0,
                 level: 1,
                 imgObj: defaultImg 
             };
@@ -247,73 +247,74 @@
             drawTree();
         }
 
-        // REINGENIERÍA DEL ALGORITMO: ASIGNACIÓN DE COORDENADAS POR ANCLAS
+        // NUEVO ALGORITMO DETERMINISTA ANTI-MUTACIÓN DE COORDENADAS
         function calculatePositions() {
             if (familyData.length === 0) return;
 
             const cardW = 220;
-            const cardH = 90;
             const levelH = 180;
-            const horizontalGap = 60;
+            const startX = 500;
+            const startY = 300;
 
-            // Paso 1: Encontrar el primer miembro registrado (ancla central)
+            // Buscamos al miembro inicial (quien orquesta el árbol)
             const root = familyData[0];
-            root.x = 600;
-            root.y = 350;
+            
+            // Forzar posiciones estables sin importar los rebotes de relaciones
+            root.x = startX;
+            root.y = startY;
             root.level = 1;
 
-            // Paso 2: Posicionar de forma iterativa y limpia basándose en vínculos directos sin recursión infinita
-            for (let i = 0; i < 5; i++) { // Ciclo de refinamiento controlado
-                familyData.forEach(m => {
-                    // Si tiene cónyuge, anclarlo inmediatamente a la derecha
-                    if (m.spouseId) {
-                        const spouse = familyData.find(s => s.id === m.spouseId);
-                        if (spouse) {
-                            if (m === root || m.x !== 600) {
-                                spouse.x = m.x + cardW + horizontalGap;
-                                spouse.y = m.y;
-                                spouse.level = m.level;
-                            }
+            // Procesar relaciones directas asignando coordenadas fijas absolutas
+            familyData.forEach(m => {
+                // Si tiene cónyuge, va a la derecha de manera inamovible
+                if (m.spouseId) {
+                    const spouse = familyData.find(s => s.id === m.spouseId);
+                    if (spouse) {
+                        if (m === root || m.x !== 0) {
+                            spouse.x = m.x + cardW + 80; // Separación fija prudente
+                            spouse.y = m.y;
+                            spouse.level = m.level;
                         }
                     }
+                }
+            });
 
-                    // Si tiene hijos registrados, posicionarlos abajo en el eje vertical
-                    familyData.forEach(child => {
-                        if (child.parents.includes(m.id)) {
-                            child.level = m.level + 1;
-                            child.y = root.y + ((child.level - root.level) * levelH);
-                            
-                            // Si el hijo tiene dos padres, centrarlo simétricamente en el medio de ambos
-                            if (child.parents.length >= 2) {
-                                const p1 = familyData.find(p => p.id === child.parents[0]);
-                                const p2 = familyData.find(p => p.id === child.parents[1]);
-                                if (p1 && p2) {
-                                    child.x = (p1.x + p2.x) / 2;
-                                }
-                            } else {
-                                child.x = m.x; // Si es soltero, baja recto
-                            }
-                        }
-                    });
+            // Posicionar hijos basándose en sus padres de forma vertical hacia abajo
+            familyData.forEach(m => {
+                if (m.parents && m.parents.length > 0) {
+                    m.level = 2; // Nivel de hijos fijo por debajo de los padres
+                    m.y = startY + levelH;
 
-                    // Si este miembro tiene padres arriba, mover los padres al nivel superior (0)
-                    m.parents.forEach(pId => {
-                        const parent = familyData.find(p => p.id === pId);
-                        if (parent) {
-                            parent.level = m.level - 1;
-                            parent.y = root.y - ((root.level - parent.level) * levelH);
-                            
-                            // Evitar colisión de los padres arriba
-                            if (!parent.spouseId) {
-                                parent.x = m.x - 100;
-                            }
+                    // Si tiene dos padres registrados en el sistema, lo centramos matemáticamente entre ellos
+                    if (m.parents.length >= 2) {
+                        const p1 = familyData.find(p => p.id === m.parents[0]);
+                        const p2 = familyData.find(p => p.id === m.parents[1]);
+                        if (p1 && p2) {
+                            const minX = Math.min(p1.x, p2.x);
+                            const maxX = Math.max(p1.x, p2.x);
+                            m.x = minX + ((maxX - minX) / 2);
                         }
-                    });
-                });
-            }
+                    } else {
+                        // Un solo padre
+                        const p1 = familyData.find(p => p.id === m.parents[0]);
+                        if (p1) m.x = p1.x + 40;
+                    }
+                }
+            });
+
+            // Posicionar abuelos (padres de la raíz) de manera vertical hacia arriba
+            familyData.forEach(m => {
+                if (root.parents.includes(m.id)) {
+                    m.level = 0;
+                    m.y = startY - levelH;
+                    if (!m.spouseId) {
+                        m.x = root.x - 80;
+                    }
+                }
+            });
         }
 
-        // MOTOR DE DIBUJO CON TRAZOS ORTOGONALES DE PRECISIÓN
+        // MOTOR DE DIBUJO CON SOPORTE DE UNIÓN MULTI-PADRE PERFECTO
         function drawTree() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (familyData.length === 0) return;
@@ -321,9 +322,9 @@
             const cardW = 220;
             const cardH = 90;
 
-            // DIBUJAR LÍNEAS DE UNIÓN
+            // 1. RENDERIZADO DE LÍNEAS DE RELACIÓN EN ESCUADRA
             familyData.forEach(m => {
-                // Línea de Cónyuges
+                // Dibujar Línea de Cónyuges
                 if (m.spouseId) {
                     const spouse = familyData.find(s => s.id === m.spouseId);
                     if (spouse && m.id < spouse.id) {
@@ -338,20 +339,19 @@
                     }
                 }
 
-                // Línea de Hijos en Escuadra (Ortogonal) perfecta
+                // Dibujar Línea de Descendencia (Hijos)
                 if (m.parents && m.parents.length > 0) {
-                    // Si tiene ambos padres, creamos el punto de unión central en la línea de esposos
                     if (m.parents.length >= 2) {
                         const p1 = familyData.find(p => p.id === m.parents[0]);
                         const p2 = familyData.find(p => p.id === m.parents[1]);
                         if (p1 && p2) {
-                            let midX = (p1.x + cardW + p2.x) / 2;
+                            // Punto medio exacto del cable de los padres
+                            let midX = (Math.min(p1.x, p2.x) + cardW + Math.max(p1.x, p2.x)) / 2;
                             let midY = p1.y + cardH / 2;
 
                             ctx.beginPath();
                             ctx.strokeStyle = "#94a3b8";
                             ctx.lineWidth = 2.5;
-                            // Baja desde la unión de los padres hasta el hijo en un trazo limpio
                             ctx.moveTo(midX, midY);
                             ctx.lineTo(midX, m.y - 25);
                             ctx.lineTo(m.x + cardW / 2, m.y - 25);
@@ -359,7 +359,6 @@
                             ctx.stroke();
                         }
                     } else {
-                        // Un solo padre
                         const parent = familyData.find(p => p.id === m.parents[0]);
                         if (parent) {
                             ctx.beginPath();
@@ -375,10 +374,10 @@
                 }
             });
 
-            // RENDERIZAR TARJETAS
+            // 2. RENDERIZADO DE LAS TARJETAS GRÁFICAS
             familyData.forEach(m => {
                 ctx.fillStyle = "#ffffff";
-                ctx.shadowColor = "rgba(0, 0, 0, 0.08)";
+                ctx.shadowColor = "rgba(0, 0, 0, 0.06)";
                 ctx.shadowBlur = 6;
                 ctx.shadowOffsetY = 3;
                 ctx.strokeStyle = m.isAlive ? "#3498db" : "#94a3b8";
@@ -392,7 +391,7 @@
                 ctx.shadowBlur = 0; 
                 ctx.shadowOffsetY = 0;
 
-                // Avatar circular
+                // Retrato Circular
                 ctx.save();
                 ctx.beginPath();
                 let radius = 25;
@@ -403,7 +402,7 @@
                 ctx.drawImage(m.imgObj, m.x + 15, m.y + (cardH / 2) - radius, radius * 2, radius * 2);
                 ctx.restore();
 
-                // Textos internos
+                // Nombres y Fechas
                 ctx.fillStyle = "#2c3e50";
                 ctx.font = "bold 13px sans-serif";
                 ctx.fillText(m.name, m.x + 80, m.y + 38, cardW - 90);
@@ -413,7 +412,7 @@
                 const dateText = m.isAlive ? `Nac: ${m.birth}` : `${m.birth} - ${m.death}`;
                 ctx.fillText(dateText, m.x + 80, m.y + 58);
 
-                // Punto indicador de estado de vida
+                // LED de Actividad
                 ctx.beginPath();
                 ctx.fillStyle = m.isAlive ? "#27ae60" : "#7f8c8d";
                 ctx.arc(m.x + cardW - 15, m.y + 15, 4, 0, Math.PI * 2);
